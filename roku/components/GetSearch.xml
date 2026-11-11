@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<component name="GetSearch" extends="Task">
+
+    <interface>
+        <field id="searchText" type="string" />
+        <field id="searchResults" type="array" />
+    </interface>
+    
+    <script type="text/brightscript" uri="pkg:/components/GetSearch.brs" />
+    <script type="text/brightscript" uri="pkg:/components/common/Http.brs" />
+    <script type="text/brightscript" uri="pkg:/components/common/Env.brs" />
+    <script type="text/brightscript" uri="pkg:/components/common/TwitchAuth.brs" />
+    <script type="text/brightscript" uri="pkg:/components/common/TwitchImages.brs" />
+
+</component>

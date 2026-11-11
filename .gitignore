@@ -1,0 +1,38 @@
+# Repo-wide ignores. Per-tree rules live in backend/.gitignore and
+# roku/.gitignore so that a pattern in one half cannot swallow files in the
+# other.
+
+# Roku build output
+*.zip
+
+# Python (the bulk of these live in backend/.gitignore; repeated here so a
+# stray venv or bytecode cache at the repo root is caught too)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+ENV/
+
+# Node (roku/components/util/.gitignore covers the helper servers)
+node_modules/
+npm-debug.log
+
+# Local environment / secrets
+.env
+*.local_settings.py
+.vscode
+roku/env
+
+# Private companion notes. A *.local.md file holds the concrete values for a
+# recipe that the published file describes with placeholders - for example the
+# test account to sign in with. It is never committed, and no published file
+# refers to one, because a reader who clones the repository will not have it.
+*.local.md
+
+# Django collected static (backend/.gitignore covers it; harmless to repeat)
+backend/static/
+
+# Editor / OS cruft
+.DS_Store
+*.swp
+*~

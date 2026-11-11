@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<component name="GetLiveStream" extends="Task">
+
+    <interface>
+        <field id="streamerRequested" type="string" />
+        <field id="streamerUserId" type="string" />
+        <field id="streamUrl" type="uri" />
+    </interface>
+    
+    <script type="text/brightscript" uri="pkg:/components/GetLiveStream.brs" />
+    <script type="text/brightscript" uri="pkg:/components/common/Http.brs" />
+    <script type="text/brightscript" uri="pkg:/components/common/Env.brs" />
+    <script type="text/brightscript" uri="pkg:/components/common/TwitchAuth.brs" />
+    <script type="text/brightscript" uri="pkg:/components/common/TwitchApi.brs" />
+
+</component>

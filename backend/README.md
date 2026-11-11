@@ -1,0 +1,110 @@
+# Twoku backend
+
+The companion service for the [Twoku Roku app](../roku/). It holds the Twitch
+client secret, brokers the OAuth device-code flow, and resolves playback URLs.
+
+This is the service that lives in this repository as `backend/`. The Roku app
+it serves is in `roku/`.
+
+## What it does
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/` | GET | Renders the device-authorization form. The user types the short code here and gets redirected to Twitch. |
+| `/register` | GET | Asks Twitch for a device code, stores it, returns the short **user code** as plain text. |
+| `/deviceredirect` | POST | Looks the code up and redirects the browser to Twitch's device page. |
+| `/unregister` | POST | Exchanges the device code for tokens. *(The name is historical — this is the token-exchange step.)* |
+| `/refresh` | POST | Exchanges a refresh token for a new access token. |
+| `/apptoken` | GET | Mints an app-level token and returns it with the client id. |
+| `/getlivestream` | POST | Resolves a live stream's playback URL via `streamlink`. |
+| `/getvod` | POST | Resolves a VOD's playback URL via `streamlink`. |
+
+The device-code flow:
+
+1. The Roku app calls `GET /register` and receives a short user code.
+2. The user enters that code on the service's home page, which redirects them
+   to Twitch to approve it.
+3. The Roku app polls `POST /unregister` with the code until Twitch returns
+   tokens.
+
+Playback URLs are resolved by shelling out to `streamlink`, so the device
+receives a master playlist URL and nothing more.
+
+## Running it locally
+
+```bash
+python -m venv .venv
+.venv/bin/pip install -r requirements.txt
+
+export TWITCH_CLIENT_ID=...
+export TWITCH_CLIENT_SECRET=...
+
+.venv/bin/python manage.py migrate
+.venv/bin/python manage.py runserver
+```
+
+The service listens on port 8080 in production.
+
+## Configuration
+
+All configuration is by environment variable. Nothing sensitive is committed.
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `TWITCH_CLIENT_ID` | for the token endpoints | — | The Twitch application's client id. |
+| `TWITCH_CLIENT_SECRET` | for the token endpoints | — | The Twitch application's client secret. |
+| `DJANGO_SECRET_KEY` | in production | randomly generated per process | Django's signing key. Not setting it invalidates sessions and signed cookies on restart. |
+| `DJANGO_DEBUG` | no | `false` | Set `true` for local development. |
+| `DJANGO_BASE_URL` | no | `https://twoku-web.clstr.dev` | The public URL this deployment is reached at, no trailing slash. The host allowlist and the CSRF origins are derived from it. |
+| `DJANGO_ALLOWED_HOSTS` | no | `localhost,127.0.0.1,<host from DJANGO_BASE_URL>` | Comma-separated host allowlist. Hostnames, without ports. |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | no | `http://localhost:8080,http://localhost:8000,<origin from DJANGO_BASE_URL>` | Comma-separated origins for unsafe requests. |
+| `DJANGO_DATABASE_PATH` | no | `db.sqlite3` next to `manage.py` | Where the SQLite file lives. |
+
+## Self-hosting
+
+The backend is configured entirely through the environment, so the same image
+serves any deployment.
+
+```bash
+cp .env.example .env      # then fill it in
+docker compose up -d
+```
+
+At minimum you need to set:
+
+| Variable | Meaning |
+|---|---|
+| `DJANGO_BASE_URL` | The address your backend is reached at, e.g. `https://twoku.example.com`. |
+| `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` | From a Twitch application you register at <https://dev.twitch.tv/console/apps>. |
+| `DJANGO_SECRET_KEY` | A random string. `python -c "import secrets; print(secrets.token_urlsafe(64))"`. |
+
+**The two halves have to agree.** `DJANGO_BASE_URL` here and `BASE-URL` in the
+Roku app's `env` file must be the same address, or the app will not reach the
+backend. See [`../roku/env.example`](../roku/env.example).
+
+Run it behind a TLS-terminating reverse proxy, and set `DJANGO_BASE_URL` to
+the `https://` address the proxy serves.
+
+## Deploying
+
+`Dockerfile` builds the image. It listens on port 8080 and runs gunicorn with
+four workers.
+
+```bash
+docker build -t twoku-webapp -f backend/Dockerfile backend
+```
+
+Migrations are applied by `docker-entrypoint.sh` when the container starts,
+not at build time, because the database may live on a mounted volume that is
+not part of the image.
+
+The CI workflows in [`.forgejo/workflows/`](../.forgejo/workflows/) build and
+push it to `registry.clstr.dev`. They expect the registry credentials in the
+Forgejo Actions secrets `REGISTRY_USERNAME` and `REGISTRY_PASSWORD`.
+
+## Notes
+
+- The database is SQLite, created by `migrate`. It holds one table, `Device`,
+  for in-flight device codes.
+- `streamlink` is installed from git rather than PyPI, so a build needs
+  network access and a working git client.

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<component name="ChatIrc" extends="Task">
+
+    <interface>
+        <field id="channel" type="string" />
+        <field id="broadcasterUserId" type="integer" />
+        <field id="loggedInUserName" type="string" value="" />
+        <field id="loggedInUserId" type="string" value="" />
+        <field id="readyForNextComment" type="bool" value="true" />
+        <field id="nextComment" type="string" />
+        <field id="clientComment" type="string" />
+        <field id="sendMessage" type="string" />
+    </interface>
+    
+    <script type="text/brightscript" uri="pkg:/components/ChatIrc.brs" />
+    <script type="text/brightscript" uri="pkg:/components/common/Http.brs" />
+    <script type="text/brightscript" uri="pkg:/components/common/Env.brs" />
+    <script type="text/brightscript" uri="pkg:/components/common/TwitchAuth.brs" />
+    <script type="text/brightscript" uri="pkg:/components/common/TwitchApi.brs" />
+
+</component>

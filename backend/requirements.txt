@@ -1,0 +1,6 @@
+Django
+urllib3
+gunicorn
+logging
+requests
+git+https://github.com/streamlink/streamlink.git

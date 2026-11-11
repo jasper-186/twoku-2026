@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<component name="GetToken" extends="Task">
+
+    <interface>
+        <field id="appBearerToken" type="string" />
+        <field id="appClientId" type="string" />
+    </interface>
+    
+    <script type="text/brightscript" uri="pkg:/components/GetToken.brs" />
+    <script type="text/brightscript" uri="pkg:/components/common/Http.brs" />
+    <script type="text/brightscript" uri="pkg:/components/common/Env.brs" />
+
+</component>

@@ -1,0 +1,44 @@
+# Self-hosting reference for the Twoku backend.
+#
+#   cp .env.example .env      # then fill it in
+#   docker compose up -d
+#
+# Every value below is read by the container from the environment, so the
+# same image serves any deployment.
+
+services:
+  backend:
+    build: .
+    image: twoku-webapp
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # The public URL this deployment is reached at, no trailing slash.
+      # The Roku app's env file must point BASE-URL at the same address.
+      DJANGO_BASE_URL: ${DJANGO_BASE_URL:?set DJANGO_BASE_URL}
+
+      # The Twitch application this backend authenticates against. Register
+      # one at https://dev.twitch.tv/console/apps and copy the credentials.
+      TWITCH_CLIENT_ID: ${TWITCH_CLIENT_ID:?set TWITCH_CLIENT_ID}
+      TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET:?set TWITCH_CLIENT_SECRET}
+
+      # Signing key for sessions and cookies. Generate one with:
+      #   python -c "import secrets; print(secrets.token_urlsafe(64))"
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?set DJANGO_SECRET_KEY}
+
+      # Leave these alone unless you are serving the backend under a name
+      # other than the one in DJANGO_BASE_URL.
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-}
+
+      # The SQLite database lives on the volume below so it survives a
+      # container replacement.
+      DJANGO_DATABASE_PATH: /app/data/db.sqlite3
+
+    volumes:
+      - backend-data:/app/data
+
+volumes:
+  backend-data:

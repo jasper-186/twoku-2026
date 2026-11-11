@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Device Authorization</title>
+</head>
+<body>
+    <h1>Device Authorization</h1>
+    <form method="post" action="{% url 'deviceredirect' %}">
+        {% csrf_token %}
+        <label for="user_code">User Code:</label>
+        <input type="text" id="user_code" name="user_code" required>
+        <button type="submit">Submit</button>
+    </form>
+</body>
+</html>

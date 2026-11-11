@@ -1,0 +1,8 @@
+*.pyc
+__pycache__
+.git
+.gitignore
+.env
+db.sqlite3
+.venv
+venv/
