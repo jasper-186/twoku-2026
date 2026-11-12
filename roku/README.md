@@ -33,7 +33,7 @@ Twoku Public (should be available for users in Mexico and Brazil): C6ZVZD (https
 ### Manual Developer Install
 1. [Enable developer mode for Roku](https://blog.roku.com/developer/developer-setup-guide)
 2. Log into your Roku from your browser using IP from previous step (http://192.168.x.x)
-3. Download the latest `twoku-<version>.zip` from the [GitHub Releases page](../README.md#continuous-integration). (You can also build it yourself — see [Build / Run / Deploy](CLAUDE.md#build--run--deploy) — but do not include extra top level directories in the ZIP file, otherwise you may get the error: "```Install Failure: No manifest. Invalid package.```".)
+3. Download the latest `twoku-<version>.zip` from the [GitHub Releases page](../README.md#continuous-integration). (You can also build it yourself — see [Build / Run / Deploy](AGENTS.md#build--run--deploy) — but do not include extra top level directories in the ZIP file, otherwise you may get the error: "```Install Failure: No manifest. Invalid package.```".)
 4. Upload the ZIP file in Roku Development Application Installer (step 2)
 5. Press Install
 6. Twoku should now be installed on your Roku. You should see it at the end of your channel list

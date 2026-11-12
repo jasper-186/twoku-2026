@@ -178,7 +178,7 @@ already in the device's registry carries the old scopes, and only a fresh
 | `components/ChatTest.brs` → `components/ChatIrc.brs` | Renamed, and rewritten. It used a hot `while true` loop reading the socket a character at a time; it now uses the documented `roStreamSocket` pattern — `SetMessagePort` + `notifyReadable` + `wait()` — with an accumulator so a line split across two TCP reads is not published half-formed. It runs for the lifetime of the app and reconnects when its `channel` field changes. Messages are queued and handed to the renderer one at a time. |
 | `components/ChatTest.xml` → `components/ChatIrc.xml` | Renamed. |
 | `components/Chat.brs` | Now creates `ChatIrc` instead of `ChatLog`, starts it once, and no longer stops it when the panel is hidden. The IRC line parser was rewritten (see below), and badge lookup now uses the Helix shape. |
-| `components/ChatLog.brs` | Parked, with a header comment recording exactly why it cannot work. |
+| `components/ChatLog.brs` | The EventSub transport, removed from this repository's tree — it was never committed here. It survives only in the pre-merge clone `twitch-reloaded-roku` and in the parked stash; see [stashed-websocket-client.md](stashed-websocket-client.md). |
 
 ### Verified on device
 

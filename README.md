@@ -64,7 +64,7 @@ npx --yes -p brighterscript@latest bsc \
     --diagnostic-level error
 ```
 
-**Read [`roku/CLAUDE.md`](roku/CLAUDE.md) before touching the Roku code.** It is
+**Read [`roku/AGENTS.md`](roku/AGENTS.md) before touching the Roku code.** It is
 the canonical architecture reference: scene graph layout, the `Get*` Task-node
 contract, the shared helpers under `roku/components/common/`, global and
 registry state, and a list of known gaps that are documented but deliberately
@@ -164,7 +164,7 @@ rebuilding and re-sideloading the app.
 
 [`roku/.known_issues/`](roku/.known_issues/) holds the defects that are fixed
 but **not yet verified on a device**, plus open questions that need a
-particular account, device state or moment in time. `roku/CLAUDE.md` lists the
+particular account, device state or moment in time. `roku/AGENTS.md` lists the
 defects themselves; that folder is the other half — how to prove a fix works
 when the defect cannot be reproduced on demand.
 

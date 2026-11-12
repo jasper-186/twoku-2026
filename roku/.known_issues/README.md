@@ -3,7 +3,7 @@
 Notes for defects that are fixed but **not yet verified on a device**, and for
 open questions that need a particular account, device state or moment in time.
 
-`CLAUDE.md` lists the defects themselves under "Known gaps / hazards". This
+`AGENTS.md` lists the defects themselves under "Known gaps / hazards". This
 folder is the other half: **how to prove a fix actually works** when the defect
 cannot be reproduced on demand.
 

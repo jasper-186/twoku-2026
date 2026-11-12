@@ -10,7 +10,7 @@ Guidance for AI coding agents working in this repository.
 | `backend/` | The companion Django service. Holds the Twitch client secret. |
 | `.github/workflows/` | CI. Builds the backend Docker image and the Roku package. |
 
-**Read `roku/CLAUDE.md` before touching the Roku code — it is the canonical
+**Read `roku/AGENTS.md` before touching the Roku code — it is the canonical
 reference.** It documents the scene graph layout, the `Get*` Task-node
 contract, the shared helpers under `roku/components/common/`, global and
 registry state, the backend contract, and a list of known gaps/hazards that are
@@ -56,7 +56,7 @@ npx --yes -p brighterscript@latest bsc \
 
 ## When you touch code
 
-Read `roku/CLAUDE.md` end to end first. Its "Known gaps / hazards" section
+Read `roku/AGENTS.md` end to end first. Its "Known gaps / hazards" section
 lists bugs that are *documented but deliberately unfixed*, so don't "fix" one
 silently as part of unrelated work.
 
