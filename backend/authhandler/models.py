@@ -8,6 +8,7 @@ class Device(models.Model):
     device_ip = models.GenericIPAddressField(null=True, blank=True)
     user_code = models.CharField(max_length=255, unique=True)
     verification_uri = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.device_name} ({self.device_code})"

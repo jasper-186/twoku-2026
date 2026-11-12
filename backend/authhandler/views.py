@@ -11,6 +11,9 @@ from django.shortcuts import redirect
 from django.views.decorators.csrf import csrf_exempt
 import subprocess
 from urllib.parse import urlsplit, urlunsplit
+from datetime import timedelta
+
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -152,8 +155,10 @@ def register(request):
         device_name = request.META.get('REMOTE_HOST')
         device_ip = get_client_ip(request)
         logger.info(f"Registering device: {device_name} with device_code: {redact(device_code)}")
-        
-        
+
+        # Codes that are never redeemed would otherwise pile up forever.
+        Device.objects.filter(created_at__lt=timezone.now() - timedelta(hours=1)).delete()
+
         # Create and save the Device
         device = Device(
             device_code=device_code,
@@ -198,9 +203,16 @@ def unregister(request):
             }
         )
         
-        #device.delete()        
+        token_data = token_response.json()
+
+        # The code has been redeemed, so it is spent - drop the row. While the
+        # user is still approving, Twitch answers with authorization_pending
+        # and the row has to stay for the next poll.
+        if token_data.get('access_token'):
+            device.delete()
+
         logger.info(f"Device unregistered: {redact(user_code)}")
-        return JsonResponse(token_response.json())
+        return JsonResponse(token_data)
     except Device.DoesNotExist:
         return JsonResponse({'error': 'Device not found'}, status=404)
     except Exception as e:
