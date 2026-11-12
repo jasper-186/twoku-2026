@@ -33,6 +33,10 @@ services:
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-}
       DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-}
 
+      # Log lines carry OAuth tokens, device codes and signed playback URLs.
+      # Those are credentials, so they are redacted unless this is on.
+      LOG_SENSITIVE_DATA: ${LOG_SENSITIVE_DATA:-false}
+
       # The SQLite database lives on the volume below so it survives a
       # container replacement.
       DJANGO_DATABASE_PATH: /app/data/db.sqlite3

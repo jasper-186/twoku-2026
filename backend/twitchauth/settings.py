@@ -157,6 +157,13 @@ STATIC_ROOT = BASE_DIR / 'static'
 TWITCH_CLIENT_ID = os.getenv('TWITCH_CLIENT_ID')
 TWITCH_CLIENT_SECRET = os.getenv('TWITCH_CLIENT_SECRET')
 
+# Log lines carry OAuth tokens, device codes and signed playback URLs. Those
+# are credentials, so they are redacted unless this is explicitly turned on.
+# Only turn it on while debugging - never on a deployment that is reachable.
+LOG_SENSITIVE_DATA = os.getenv(
+    'LOG_SENSITIVE_DATA', 'false'
+).lower() in ('1', 'true', 'yes', 'on')
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -173,7 +180,9 @@ LOGGING = {
         "authhandler.views": {
             "handlers": ["console"],
             "level": "INFO",
-            "propagate": True,
+            # This logger has its own handler, so letting the records carry on
+            # to the root logger would write every line out a second time.
+            "propagate": False,
         },
     },
 }

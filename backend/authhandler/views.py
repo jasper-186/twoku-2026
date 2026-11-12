@@ -10,9 +10,80 @@ from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.views.decorators.csrf import csrf_exempt
 import subprocess
+from urllib.parse import urlsplit, urlunsplit
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Keys whose values are credentials and must never reach the log unless
+# LOG_SENSITIVE_DATA is switched on.
+SECRET_KEYS = frozenset([
+    'access_token',
+    'refresh_token',
+    'device_code',
+    'user_code',
+    'code',
+])
+
+
+def redact(value):
+    """A short, non-reversible hint for a credential."""
+    if settings.LOG_SENSITIVE_DATA:
+        return str(value)
+    text = str(value or '')
+    if not text:
+        return ''
+    if len(text) <= 8:
+        return '*' * len(text)
+    return '%s...(%d chars)' % (text[:4], len(text))
+
+
+def summarize(payload):
+    """A copy of a JSON payload with the credential material redacted."""
+    if settings.LOG_SENSITIVE_DATA:
+        return payload
+    if not isinstance(payload, dict):
+        return payload
+    safe = {}
+    for key, value in payload.items():
+        if key.lower() in SECRET_KEYS:
+            safe[key] = redact(value)
+        else:
+            safe[key] = value
+    return safe
+
+
+def redact_url(url):
+    """A URL without its query string - the signed parameters are credentials."""
+    if settings.LOG_SENSITIVE_DATA:
+        return url
+    if not url:
+        return ''
+    parts = urlsplit(url)
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, '', ''))
+
+
+def summarize_stream(stream_data):
+    """The streamlink payload, without tokens or signed URLs."""
+    if settings.LOG_SENSITIVE_DATA:
+        return stream_data
+    metadata = stream_data.get('metadata', {})
+    streams = stream_data.get('streams', {})
+    best = streams.get('best') or streams.get('worst') or {}
+    return {
+        'plugin': stream_data.get('plugin'),
+        'metadata': {
+            'id': metadata.get('id'),
+            'author': metadata.get('author'),
+            'category': metadata.get('category'),
+            'title': metadata.get('title'),
+        },
+        'qualities': sorted(
+            key for key in streams
+            if key not in ('audio_only', 'best', 'worst')
+        ),
+        'master': redact_url(best.get('master', '')),
+    }
+
 
 def get_client_ip(request):
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -73,14 +144,14 @@ def register(request):
         )
         
         device_data = device_response.json()
-        logger.info(f"device_data: {json.dumps(device_data)}")
+        logger.info(f"device_data: {json.dumps(summarize(device_data))}")
         device_code = device_data.get('device_code')
         user_code = device_data.get('user_code')
         verification_uri=device_data.get('verification_uri')
         
         device_name = request.META.get('REMOTE_HOST')
         device_ip = get_client_ip(request)
-        logger.info(f"Registering device: {device_name} with device_code: {device_code}")
+        logger.info(f"Registering device: {device_name} with device_code: {redact(device_code)}")
         
         
         # Create and save the Device
@@ -105,17 +176,17 @@ def unregister(request):
     if request.method != 'POST':
         return HttpResponse("Method not allowed", status=405)
     
-    logger.info(f"unregister request body: {request.body}")        
     try:
         data = json.loads(request.body)
+        logger.info(f"unregister request body: {json.dumps(summarize(data))}")
         user_code = data.get('code')
-        logger.info(f"user_code: {user_code}")
+        logger.info(f"user_code: {redact(user_code)}")
         if not user_code:
             return JsonResponse({'error': 'Missing code parameter'}, status=400)
         
         device = Device.objects.get(user_code=user_code)
         
-        logger.info(f"device_code: {device.device_code}")
+        logger.info(f"device_code: {redact(device.device_code)}")
         # Post to Twitch token endpoint
         token_response = requests.post(
             'https://id.twitch.tv/oauth2/token',
@@ -128,7 +199,7 @@ def unregister(request):
         )
         
         #device.delete()        
-        logger.info(f"Device unregistered: {user_code}")
+        logger.info(f"Device unregistered: {redact(user_code)}")
         return JsonResponse(token_response.json())
     except Device.DoesNotExist:
         return JsonResponse({'error': 'Device not found'}, status=404)
@@ -157,9 +228,9 @@ def refresh(request):
         )
         
         token_data = token_response.json()
-        logger.info(f"token_data: {json.dumps(token_data)}")
-        
-        return JsonResponse(token_data)
+        logger.info(f"token_data: {json.dumps(summarize(token_data))}")
+
+        return JsonResponse(token_data, status=token_response.status_code)
     except Exception as e:
         logger.error(f"Device registration error: {str(e)}")
         return JsonResponse({'error': str(e)}, status=400)
@@ -183,9 +254,9 @@ def apptoken(request):
         
         token_data = token_response.json()
         token_data['client_id'] = settings.TWITCH_CLIENT_ID
-        logger.info(f"token_data: {json.dumps(token_data)}")
-        
-        return JsonResponse(token_data)
+        logger.info(f"token_data: {json.dumps(summarize(token_data))}")
+
+        return JsonResponse(token_data, status=token_response.status_code)
     except Exception as e:
         logger.error(f"Device registration error: {str(e)}")
         return JsonResponse({'error': str(e)}, status=400)
@@ -202,7 +273,7 @@ def getlivestream(request):
         access_token = data.get('access_token')
         resolution = data.get('resolution')
         
-        logger.info(f"Getting stream link for channel: {twitch_channel} @ {resolution} with access token: {access_token}")
+        logger.info(f"Getting stream link for channel: {twitch_channel} @ {resolution} with access token: {redact(access_token)}")
     
         try:
             result = subprocess.run(
@@ -230,7 +301,7 @@ def getlivestream(request):
                 return JsonResponse({'error': error_message}, status=500)
             
             stream_data = json.loads(result.stdout.decode('utf-8'))
-            logger.info(f"Stream URL: {stream_data}")
+            logger.info(f"Stream URL: {summarize_stream(stream_data)}")
             return JsonResponse({'stream_data': stream_data})
         
         except Exception as e:
@@ -254,7 +325,7 @@ def getvod(request):
         access_token = data.get('access_token')
         resolution = data.get('resolution')
         
-        logger.info(f"Getting video link for Id: {video_id} @ {resolution} with access token: {access_token}")
+        logger.info(f"Getting video link for Id: {video_id} @ {resolution} with access token: {redact(access_token)}")
     
         try:
             result = subprocess.run(
@@ -281,7 +352,7 @@ def getvod(request):
                 return JsonResponse({'error': error_message}, status=500)
             
             stream_data = json.loads(result.stdout.decode('utf-8'))
-            logger.info(f"Stream URL: {stream_data}")
+            logger.info(f"Stream URL: {summarize_stream(stream_data)}")
             return JsonResponse({'stream_data': stream_data})
         
         except Exception as e:

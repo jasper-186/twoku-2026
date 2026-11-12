@@ -14,7 +14,7 @@ it serves is in `roku/`.
 | `/register` | GET | Asks Twitch for a device code, stores it, returns the short **user code** as plain text. |
 | `/deviceredirect` | POST | Looks the code up and redirects the browser to Twitch's device page. |
 | `/unregister` | POST | Exchanges the device code for tokens. *(The name is historical — this is the token-exchange step.)* |
-| `/refresh` | POST | Exchanges a refresh token for a new access token. |
+| `/refresh` | POST | Exchanges a refresh token for a new access token. Returns the upstream status code, so a rejected refresh token comes back as `400`. |
 | `/apptoken` | GET | Mints an app-level token and returns it with the client id. |
 | `/getlivestream` | POST | Resolves a live stream's playback URL via `streamlink`. |
 | `/getvod` | POST | Resolves a VOD's playback URL via `streamlink`. |
@@ -59,6 +59,7 @@ All configuration is by environment variable. Nothing sensitive is committed.
 | `DJANGO_ALLOWED_HOSTS` | no | `localhost,127.0.0.1,<host from DJANGO_BASE_URL>` | Comma-separated host allowlist. Hostnames, without ports. |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | no | `http://localhost:8080,http://localhost:8000,<origin from DJANGO_BASE_URL>` | Comma-separated origins for unsafe requests. |
 | `DJANGO_DATABASE_PATH` | no | `db.sqlite3` next to `manage.py` | Where the SQLite file lives. |
+| `LOG_SENSITIVE_DATA` | no | `false` | When `true`, log lines carry the full OAuth tokens, device codes and signed playback URLs. **Leave it off** — those are credentials, and the log is the one place they are most likely to be copied from. Turn it on only while debugging. |
 
 ## Self-hosting
 
