@@ -66,7 +66,7 @@ sub onGetVideoUrl()
     if m.pastBroadcastsList.hasFocus()
         m.top.thumbnailInfo = m.getPreviousLiveStreamVideo.thumbnailInfo
         m.top.videoUrl = m.getPreviousLiveStreamVideo.streamUrl
-        ? "ChannelPage > thumbnailInfo > "; m.top.thumbnailInfo
+        ? "ChannelPage > thumbnailInfo > "; m.getPreviousLiveStreamVideo.thumbnailInfo
     else if m.streamItem.hasFocus()
         m.top.streamUrl = m.getLiveStream.streamUrl
     end if

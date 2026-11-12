@@ -201,13 +201,16 @@ sub onStreamChangeFromChannelPage()
     m.videoPlayer.content = m.stream
     m.videoPlayer.thumbnailInfo = m.homeScene.thumbnailInfo
     m.homeScene.thumbnailInfo = invalid
-    m.videoPlayer.control = "play"
+    ' The seek has to be set before playback starts. A seek that arrives
+    ' after the player is already running takes the media player down and
+    ' the video never starts at all.
     if m.videoPlayer.thumbnailInfo <> invalid
         if m.videoPlayer.videoBookmarks.DoesExist(m.videoPlayer.thumbnailInfo.video_id.ToStr())
             ? "MainScene >> position > " m.videoPlayer.videoBookmarks[m.videoPlayer.thumbnailInfo.video_id.ToStr()]
             m.videoPlayer.seek = Val(m.videoPlayer.videoBookmarks[m.videoPlayer.thumbnailInfo.video_id.ToStr()])
         end if
     end if
+    m.videoPlayer.control = "play"
 end sub
 
 sub updateRecents()
