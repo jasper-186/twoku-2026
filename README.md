@@ -13,6 +13,13 @@ streamers, plays live streams and VODs, and renders Twitch chat.
 
 The two halves are one product, so they live in one repository.
 
+## Installing the app
+
+This build is **not published as a Roku channel**, so there is no channel-store
+listing and no access code — it can only be installed by sideloading the
+release zip onto a Roku in developer mode. See
+[`roku/README.md`](roku/README.md#how-to-install) for the steps.
+
 ## How the halves talk
 
 The Roku app never receives the Twitch client secret. Everything that needs
@@ -44,7 +51,9 @@ cd roku
 ./package.sh            # writes roku/twoku.zip
 ```
 
-Then sideload it:
+Then sideload it — this needs the Roku in
+[developer mode](https://blog.roku.com/developer/developer-setup-guide), the
+same as installing a release:
 
 ```bash
 curl --digest -u rokudev:<password> \
@@ -120,8 +129,9 @@ points at a release whose backend image failed to build.
 ### Releases are unsigned
 
 The published zip is not signed, so installing it requires the Roku to be in
-[developer mode](https://blog.roku.com/developer/developer-setup-guide).
-See [`roku/README.md`](roku/README.md) for the install steps.
+[developer mode](https://blog.roku.com/developer/developer-setup-guide). There
+is no signed, channel-store version of this build. See
+[`roku/README.md`](roku/README.md#how-to-install) for the install steps.
 
 ## Self-hosting
 
