@@ -295,6 +295,14 @@
             backgroundOpacity="0"
             centered="false"
             translation="[580,300]" />
+        <SimpleLabel
+            id="errorMessage"
+            translation="[330,340]"
+            text="Playback failed"
+            color="0xFFFFFFFF"
+            fontSize="20"
+            fontUri="pkg:/fonts/Inter-SemiBold.ttf"
+            visible="false" />
     </children>
 
 </component>

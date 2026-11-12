@@ -42,6 +42,7 @@ function init()
     m.progressBarFocused = false
 
     m.loadingIndicator = m.top.findNode("loadingIndicator")
+    m.errorMessage = m.top.findNode("errorMessage")
     m.top.observeField("state", "onvideoStateChange")
     m.top.observeField("channelAvatar", "onChannelAvatarChange")
     m.top.observeField("chatIsVisible", "onChatVisibilityChange")
@@ -92,7 +93,26 @@ sub onVideoStateChange()
     else
         m.loadingIndicator.control = "stop"
     end if
+    if m.top.state = "error"
+        ? "CustomVideo >> playback error: " + m.top.errorCode.ToStr() + " - " + playbackErrorText()
+        m.errorMessage.text = "Playback failed - " + playbackErrorText()
+        m.errorMessage.visible = true
+    else
+        m.errorMessage.visible = false
+    end if
 end sub
+
+' The Video node reports why playback failed in errorMsg, errorStr and
+' errorInfo. errorMsg is the short one; the others are the long diagnostics.
+function playbackErrorText() as String
+    if m.top.errorMsg <> invalid and m.top.errorMsg <> ""
+        return m.top.errorMsg
+    end if
+    if m.top.errorStr <> invalid and m.top.errorStr <> ""
+        return m.top.errorStr
+    end if
+    return "unknown error"
+end function
 
 sub onButtonHold()
     if m.buttonHeld <> invalid and m.top.thumbnailInfo <> invalid
