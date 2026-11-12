@@ -17,16 +17,13 @@ shortage of effort in this app — the platform does not expose the primitives:
 |---|---|
 | TLS 1.3 to a WebSocket endpoint | No native TLS socket. `roUrlTransfer` does TLS for HTTP only. |
 | A symmetric cipher for TLS 1.3 | `roEVPCipher` has AES-128/192/256 in CBC/CFB/ECB/OFB and `aes-gcm-128` (OS 15.2+). TLS 1.3 also allows `TLS_AES_128_GCM_SHA256`, so the cipher is **not** the blocker. |
-| Key agreement | No X25519. `roEVPCipher` has no ECDH, and `ByteUtil.brs` has `ModExp` but no Curve25519 arithmetic. |
+| Key agreement | No X25519, and no ECDH of any kind. |
 | Server authentication | Certificate chain validation and signature verification over the transcript hash are not available. |
-| A hand-rolled TLS 1.3 stack | The vendored `WebSocketClient` is TLS 1.2 with RSA key exchange and no symmetric cipher at all (`ByteUtil.brs` has only RSA and modular arithmetic). A TLS 1.3 skeleton with the missing parts stubbed is parked in the stash — see [stashed-websocket-client.md](stashed-websocket-client.md). |
+| A hand-rolled TLS 1.3 stack | Not present in this repository, and not attempted further. The analysis of what it would require is in [tls-1.3-on-roku.md](tls-1.3-on-roku.md). |
 
 So the platform *could* be taught TLS 1.3, but it would mean implementing
 Curve25519, signature verification and X.509 parsing in BrightScript — a large
 job with a poor return, when the backend already speaks TLS 1.3 for free.
-
-The stash on `2026_05_01_Fix_Following` was an attempt at exactly this and was
-parked for the same reason.
 
 ## The shape of the fix
 
@@ -62,10 +59,11 @@ Roku app                          Backend                      Twitch
      an app token), `type: channel.chat.message`, `version: 1`,
      `condition: { broadcaster_user_id, user_id }` and
      `transport: { method: "websocket", session_id }`.
-   - `user_id` is the *signed-in* user's id. **The device does not currently
-     persist the user id** — the `LoggedInUserId` registry key is never
-     written, which also broke the old in-app subscription. Persisting it is
-     needed either way.
+   - `user_id` is the *signed-in* user's id. The device now has it: it is
+     written to the `LoggedInUserId` registry key at login
+     (`components/common/TwitchAuth.brs:165`) and passed to the chat component
+     at runtime (`components/MainScene.brs:307`). The backend will need its own
+     copy of the id, which it can take from the token's `/validate` response.
    - Subscribe within 10 seconds of the welcome message or Twitch closes the
      socket.
 2. **A per-channel buffer** of recent messages with a monotonically increasing

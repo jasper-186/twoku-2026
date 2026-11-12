@@ -2,9 +2,9 @@
 '
 ' Twitch's IRC endpoint (irc.chat.twitch.tv:6667) is plain TCP, so no TLS is
 ' needed - the Roku cannot speak the TLS 1.3 that Twitch's EventSub WebSocket
-' requires. The vendored WebSocketClient that used to be in the tree offered
+' requires. An earlier EventSub transport that used to be in the tree offered
 ' TLS 1.2 with RSA key exchange only, and there was no AES implementation to
-' decrypt records with. See .known_issues/stashed-websocket-client.md.
+' decrypt records with. See .known_issues/tls-1.3-on-roku.md.
 '
 ' The token must carry the legacy chat:read / chat:edit scopes. A token with
 ' only the modern user:read:chat / user:write:chat names is rejected by

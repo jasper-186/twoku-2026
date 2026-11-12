@@ -61,10 +61,15 @@ login is stored in the `dev` registry section and survives a reinstall.
 
 ### Repository state
 
-The fix landed on the branch `2026_05_01_Fix_Following`, which is merged into
-the trunk. The pre-fix build is not in the repository — `*.zip` is gitignored,
-so it has to be rebuilt from the pre-fix commit to serve as the reference
-build for the A/B comparisons below.
+The fixes are in the trunk. The **pre-fix build is not obtainable from this
+repository**: `*.zip` is gitignored, and the history was squashed when the
+Roku app and its backend were merged into one repository, so there is no
+pre-fix commit to check out.
+
+The A/B comparisons below are therefore done by **reintroducing the defect
+with a local patch** — the same technique the Fallback in Recipe B uses. Each
+recipe gives the patch, and every patch says **do not commit it**. Apply one,
+build and sideload, observe, then revert it and build again.
 
 ---
 
@@ -103,9 +108,10 @@ account.
 `HomeScene` gained a `loggedInUserLogin` field alongside `loggedInUserName`:
 
 - `MainScene.onUserLogin` sets `loggedInUserName` from `searchResults.display_name`
-  (for the header) and `loggedInUserLogin` from `searchResults.login`.
+  (for the header) and `loggedInUserLogin` from `searchResults.login`
+  (`components/MainScene.brs:301-302`).
 - `HomeScene.onGetFollowedStreams` passes `m.top.loggedInUserLogin` to the
-  offline task.
+  offline task (`components/HomeScene.brs:326`).
 
 That chain is verifiable by reading the source. To see it at runtime, add one
 diagnostic line — **do not commit it**:
@@ -116,12 +122,26 @@ diagnostic line — **do not commit it**:
 ? "GetOfflineFollowedChannels > resolved user id " + current_user.id + " for login " + m.top.loggedInUserName
 ```
 
+### Reintroducing the defect — do not commit this
+
+Change the one line that hands the task the login, so it hands over the
+display name instead:
+
+```brightscript
+' in components/HomeScene.brs, in onGetFollowedStreams:
+'   current (fixed):   m.getOfflineFollowed.loggedInUserName = m.top.loggedInUserLogin
+'   patched (defect): m.getOfflineFollowed.loggedInUserName = m.top.loggedInUserName
+```
+
+That is the whole defect: the task resolves the user with
+`helix/users?login=`, and the display name is what it used to be given.
+
 ### Pass criteria
 
 | Build | Expected console line |
 |---|---|
-| Old (pre-fix build) | `... for login <display name>` |
-| New | `... for login <login>` |
+| Patched (defect reintroduced) | `... for login <display name>` |
+| Unpatched (current trunk) | `... for login <login>` |
 
 Both resolve to the same user id, so the *result* is the same on this
 account — the input is what differs, and the input is the defect.
@@ -158,19 +178,41 @@ follows":
 
 `HomeScene.hasLiveFollows()` tests the number of live followed streamers
 rather than the row count, and is used in `onFollowingSelect`,
-`onGetFollowedStreams` and `onBrowseFollowing`.
+`onGetFollowedStreams` and `onBrowseFollowing`
+(`components/HomeScene.brs:385-390`).
 
 **Note:** an earlier version of this fix tested `m.numRowsInFollowingList`
 against 0, which could never be true — when the list is empty the trailing row
 append still runs and counts an *empty* row, so the count was 1. The row count
 cannot express "there are no live follows"; only the stream count can.
 
+### Reintroducing the defect — do not commit this
+
+Change the one line that answers "are there live follows?" so it answers
+"are there rows?" instead:
+
+```brightscript
+' in components/HomeScene.brs, in hasLiveFollows():
+'   current:  return m.top.followedStreams.count() > 0
+'   patched:  return m.numRowsInFollowingList > 0
+```
+
+With no live follows, the trailing-row append still counts an empty phantom
+row, so `m.numRowsInFollowingList` is **1** — the helper now reports live
+follows that do not exist, and the Offline Channels section never appears.
+
+This patch reproduces the realistic case (the followed-streams list comes back
+as an empty array). It does **not** reproduce the other sub-case, where
+`GetUser` bails out early and the list is `invalid` — both the current and the
+patched helper answer "no live follows" there, so that path looks the same in
+both builds.
+
 ### A/B
 
-1. Install the pre-fix build and open the Following tab.
+1. Apply the patch, build, sideload, and open the Following tab.
    **Expected:** the Offline Channels section never appears, however the
    cursor is moved.
-2. Install the new build and open the Following tab.
+2. Revert the patch, rebuild, sideload, and open the Following tab.
    **Expected:** the Offline Channels section appears straight away, with the
    "Offline Channels" label above it.
 
@@ -193,7 +235,8 @@ only difference is the fix itself.
 
 ### Pass criteria
 
-Old build: section absent. New build: section present and populated.
+Defect reintroduced: section absent. Current trunk: section present and
+populated.
 
 ---
 
@@ -273,7 +316,7 @@ timeout 60 nc "$ROKU_HOST" 8085
 Compile output looks like:
 
 ```
------- Compiling dev 'TwokuDev' ------
+------ Compiling dev 'Twoku-2026' ------
 BRIGHTSCRIPT: WARNING: unused variable 'scene' in function 'runuserinterface' in pkg:/source/main.brs(1)
 ...
 Displayed 34 of 34 warnings

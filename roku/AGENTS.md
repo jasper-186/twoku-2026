@@ -307,21 +307,22 @@ IRCv3 tags.
   + `wait()`. **Nothing starts or stops it** — the chat panel's visibility
   deliberately has no say, because stopping the task races with its own
   startup and cancels it.
-- The EventSub rewrite (`ChatLog`) has been **removed from the tree**. It could
-  not have worked as it stood: the vendored `WebSocketClient` offered TLS 1.2
-  with RSA key exchange only (no ECDHE, no TLS 1.3 suites), and `ByteUtil.brs`
-  had no symmetric cipher at all. The cipher was *not* the real blocker —
-  `roEVPCipher` has had `aes-gcm-128` since Roku OS 15.2 and TLS 1.3 also
-  allows `TLS_AES_128_GCM_SHA256`. What was missing is key agreement, server
-  authentication and certificate handling; the stashed TLS 1.3 skeleton has
-  those stubbed. See
-  [`.known_issues/stashed-websocket-client.md`](.known_issues/stashed-websocket-client.md).
-  The durable replacement is a backend relay — see
+- An earlier EventSub WebSocket implementation of the chat transport has been
+  **removed from the tree**. It could not have worked as it stood: its
+  hand-rolled TLS offered TLS 1.2 with RSA key exchange only (no ECDHE, no
+  TLS 1.3 suites) and no symmetric cipher. The cipher was *not* the real
+  blocker — `roEVPCipher` has had `aes-gcm-128` since Roku OS 15.2 and TLS 1.3
+  also allows `TLS_AES_128_GCM_SHA256`. What was missing is key agreement,
+  server authentication and certificate handling. See
+  [`.known_issues/tls-1.3-on-roku.md`](.known_issues/tls-1.3-on-roku.md) for
+  the full analysis. The durable replacement is a backend relay — see
   [`.known_issues/backend-chat-relay.md`](.known_issues/backend-chat-relay.md).
 - **The token must carry the legacy `chat:read` / `chat:edit` scopes.**
   Twitch's IRC server rejects a token with only the modern `user:read:chat` /
-  `user:write:chat` names with "Login unsuccessful". The companion backend
-  mints the modern names — the diff to add both is in
+  `user:write:chat` names with "Login unsuccessful". The companion backend now
+  requests both sets — but that change still has to be **deployed**, and the
+  account has to **re-run the device-code login** afterwards, because the token
+  already in the device's registry carries the old scopes. See
   [`.known_issues/twitch-chat.md`](.known_issues/twitch-chat.md).
 - Chat badges come from `helix/chat/badges?broadcaster_id=<id>` (Helix shape:
   `data[].set_id`, `data[].versions[].image_url_1x`). The legacy
@@ -329,10 +330,11 @@ IRCv3 tags.
   badges and the channel's own.
 
 `components/common/WebSocket.brs` is an RFC-6455 BrightScript WebSocket
-client, salvaged from the parked stash. It is `ws://`-only: the hand-rolled
-TLS that was in `components/web_socket_client/` could not complete a handshake,
-and `roStreamSocket` has no native TLS. Don't modify it casually — the
-protocol code is hand-rolled.
+client. It is `ws://`-only: `roStreamSocket` has no native TLS, so a
+`wss://` handshake would need a hand-rolled TLS stack that could not complete
+one. The chat does not use it — plain IRC needs no WebSocket — but it is a
+self-contained client that could talk to any plain WebSocket endpoint. Don't
+modify it casually — the protocol code is hand-rolled.
 
 ## Known gaps / hazards
 
@@ -406,5 +408,6 @@ conventions](.known_issues/README.md).
 ## Branch / commit style
 
 Working branches are dated: `YYYY_MM_DD_<Topic>` (e.g.
-`2026_05_01_Fix_Following`). Commit messages are short imperative summaries;
-squash-style "what + why" in a single line is typical. The trunk is `main`.
+`2026_11_11_GitHub_Actions_Release`). Commit messages are short imperative
+summaries; squash-style "what + why" in a single line is typical. The trunk is
+`main`.

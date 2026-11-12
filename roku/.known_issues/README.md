@@ -45,9 +45,9 @@ resolves any of them, so a name in a public file is a name anyone can look up
 | Topic | Deferred | Status |
 |---|---|---|
 | [following-tab.md](following-tab.md) | 2026-10-28 | Two verification recipes deferred (D1, D2) plus one correction (D11). The test account is described by its properties, not by name. |
-| [twitch-chat.md](twitch-chat.md) | 2026-10-29 | Chat was empty: five stacked faults. Fixed by moving to plain Twitch IRC — **needs a backend change** (documented as a diff) |
+| [twitch-chat.md](twitch-chat.md) | 2026-10-29 | Chat was empty: five stacked faults. Fixed by moving to plain Twitch IRC — **the backend scope change still has to be deployed**, and the account has to re-log-in afterwards. |
 | [backend-chat-relay.md](backend-chat-relay.md) | 2026-10-29 | Future feature: move the Twitch-side connection to the backend so the Roku only ever needs plain HTTPS |
-| [stashed-websocket-client.md](stashed-websocket-client.md) | 2026-10-29 | The parked TLS 1.3 / WebSocket rewrite — what it is, what is left, and how to recover it from the pre-merge clone. |
+| [tls-1.3-on-roku.md](tls-1.3-on-roku.md) | 2026-10-29 | What a hand-rolled TLS 1.3 stack on Roku would require, and why the chat does not need one. |
 
 ## Related
 

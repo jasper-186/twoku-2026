@@ -1,10 +1,12 @@
-# Twitch chat — root cause, the backend change, and what is still parked
+# Twitch chat — root cause and what is still to verify
 
 ## Status
 
 - **Fixed:** 2026-10-29 — the chat panel is fed by plain Twitch IRC again
-- **Needs a backend change:** the token Twitch's IRC server accepts is not the
-  token the backend currently mints. See the diff below.
+- **Backend:** the scope change below is **already applied** in
+  `backend/authhandler/views.py`. It still needs to be **deployed**, and the
+  account needs to **re-run the device-code login** afterwards, because the
+  token already in the device's registry carries the old scopes.
 - **Still parked:** the EventSub WebSocket path. See
   [backend-chat-relay.md](backend-chat-relay.md) for the durable replacement.
 
@@ -15,10 +17,15 @@
 There were **five** independent faults stacked on top of each other. Any one of
 them alone would have produced an empty chat box.
 
+The first three belonged to an earlier EventSub WebSocket implementation of the
+chat transport. That implementation is **not part of this repository** — it was
+replaced wholesale by the IRC transport described below, so its files are gone
+and only its failure modes are recorded here.
+
 ### 1. The transport could not connect (EventSub WebSocket)
 
-`ChatLog` used the vendored `WebSocketClient` to reach
-`wss://eventsub.wss.twitch.tv/ws`. On device:
+The EventSub transport reached `wss://eventsub.wss.twitch.tv/ws` through a
+hand-rolled TLS stack. On device:
 
 ```
 TlsUtil: Sending: 16030300660100006203036AE29CDC8D8C40E1C35EBAB92E1F0DADBF0969308EE0158C46F28BF13F18C05F000008009C009D003C003D010000...
@@ -36,15 +43,15 @@ TLS 1.3.
 
 It could not have been fixed on the device either:
 
-- `components/web_socket_client/ByteUtil.brs` has **no symmetric cipher** — only
-  RSA and modular arithmetic — so records could never be decrypted.
+- The vendored TLS helper had **no symmetric cipher** — only RSA and modular
+  arithmetic — so records could never be decrypted.
 - The cipher itself is **not** the blocker. `roEVPCipher` has had
-  `aes-gcm-128` since Roku OS 15.2 (the device here runs 15.3.4) and TLS 1.3
-  also allows `TLS_AES_128_GCM_SHA256` (0x1301). What is missing is key
-  agreement (X25519 ECDHE), server authentication (signature verification and
-  X.509 chain validation) and GCM record framing. A TLS 1.3 skeleton with
-  exactly those gaps stubbed is parked in the stash — see
-  [stashed-websocket-client.md](stashed-websocket-client.md).
+  `aes-gcm-128` since Roku OS 15.2 and TLS 1.3 also allows
+  `TLS_AES_128_GCM_SHA256` (0x1301). What is missing is key agreement (X25519
+  ECDHE), server authentication (signature verification and X.509 chain
+  validation) and GCM record framing. See
+  [tls-1.3-on-roku.md](tls-1.3-on-roku.md) for the full analysis of what a
+  hand-rolled TLS 1.3 stack would require.
 
 ### 2. The chat task was stopped before it ever ran
 
@@ -71,26 +78,31 @@ the task's `state` still read `run`.
 
 **Fix:** the transport now runs for the lifetime of the app. It watches its own
 `channel` field and reconnects itself when the channel changes, so nothing
-starts or stops it. The panel's visibility no longer has any say in it.
+starts or stops it. The panel's visibility no longer has any say in it. See
+`components/Chat.brs:11-15` for the comment that records why.
 
 ### 3. The subscription was never created
 
-`ChatLog.subscribeToChat` built the subscription body and then issued a **GET**
-to `helix/eventsub/subscriptions`. Twitch requires a **POST** with that body.
-The body was never sent.
+The EventSub implementation built the subscription body and then issued a
+**GET** to `helix/eventsub/subscriptions`. Twitch requires a **POST** with
+that body. The body was never sent.
 
 ### 4. The user id was never plumbed through
 
 The subscription's `condition.user_id` came from `Chat.loggedInUserId`, which
-**nothing ever writes** — `MainScene` sets `m.chat.loggedInUserName` only. The
-underlying registry key `LoggedInUserId` is likewise never written.
+**nothing ever wrote** — `MainScene` set `m.chat.loggedInUserName` only.
+
+This one is now fixed: `MainScene.brs:307` sets
+`m.chat.loggedInUserId = m.getUser.searchResults.id`, and
+`common/TwitchAuth.brs:165` writes the `LoggedInUserId` registry key during
+the device-code login.
 
 ### 5. Messages never reached the renderer
 
-`ChatLog.on_message` printed the message but **never set `nextComment`** — the
-only field `Chat.brs` observes. Even a working socket would have rendered
-nothing. `Chat.brs` also parsed the IRCv3 tag format, while EventSub delivers
-JSON.
+The EventSub implementation printed the message but **never set
+`nextComment`** — the only field `Chat.brs` observes. Even a working socket
+would have rendered nothing. `Chat.brs` also parsed the IRCv3 tag format,
+while EventSub delivers JSON.
 
 ---
 
@@ -105,7 +117,8 @@ was repaired rather than replaced.
 
 Twitch's IRC server authenticates **only** against the *legacy* `chat:read` /
 `chat:edit` scopes. A token carrying the modern `user:read:chat` /
-`user:write:chat` names — which is what the backend mints — is rejected:
+`user:write:chat` names — which is what the backend used to mint — is
+rejected:
 
 ```
 :tmi.twitch.tv NOTICE * :Login unsuccessful
@@ -123,51 +136,40 @@ Both sets can be requested at once — the device-code endpoint accepts
 `chat:read chat:edit user:read:chat user:write:chat` — so the same token can
 serve both IRC and EventSub.
 
-### Backend change required
+### The backend change — already applied
 
-In `backend/authhandler/views.py`:
+`backend/authhandler/views.py` now requests both scope sets in `register`:
 
-```diff
---- a/authhandler/views.py
-+++ b/authhandler/views.py
-@@ -55,12 +55,19 @@ def register(request):
-     logger.info(f"request.META.REMOTE_ADDR: {(request.META.get('REMOTE_ADDR'))}")
-     try:
-         # Request device code from Twitch
-+        # Twitch's IRC endpoint (irc.chat.twitch.tv:6667) still authenticates
-+        # only against the legacy chat:read / chat:edit scopes - a token
-+        # carrying just the modern user:read:chat / user:write:chat names is
-+        # rejected with "Login unsuccessful". Request both sets so the same
-+        # token works for IRC and for EventSub.
-         scopes = [
-             'user:read:email',
-             'user:read:follows',
-             'user:read:chat',
--            'user:write:chat',            
-+            'user:write:chat',
-+            'chat:read',
-+            'chat:edit',
-         ]
-         
-         device_response = requests.post(
-@@ -117,10 +124,11 @@ def unregister(request):
-         # Post to Twitch token endpoint
-         token_response = requests.post(
-             'https://id.twitch.tv/oauth2/token',
-             data={
-                 'client_id': settings.TWITCH_CLIENT_ID,
--                'scope': 'channel:manage:broadcast',
-+                # No scope here: for the device_code grant the scopes come from
-+                # the original /register request. This parameter was ignored.
-                 'device_code': device.device_code,
-                 'grant_type': 'urn:ietf:params:oauth:grant-type:device_code'
-             }
-         )
+```python
+scopes = [
+    'user:read:email',
+    'user:read:follows',
+    'user:read:chat',
+    'user:write:chat',
+    'chat:read',
+    'chat:edit',
+]
 ```
 
-After deploying the backend, **re-run the device-code login** — the token
-already in the device's registry carries the old scopes, and only a fresh
-`/register` mints the new set.
+and the token exchange in `unregister` no longer sends a `scope` parameter,
+because for the device-code grant the scopes come from the original
+`/register` request and that parameter was ignored:
+
+```python
+token_response = requests.post(
+    'https://id.twitch.tv/oauth2/token',
+    data={
+        'client_id': settings.TWITCH_CLIENT_ID,
+        #'scope': 'channel:manage:broadcast',
+        'device_code': device.device_code,
+        'grant_type': 'urn:ietf:params:oauth:grant-type:device_code'
+    }
+)
+```
+
+**What is still required:** deploy the backend, then **re-run the device-code
+login** on the device. The token already in the device's registry carries the
+old scopes, and only a fresh `/register` mints the new set.
 
 ---
 
@@ -175,10 +177,10 @@ already in the device's registry carries the old scopes, and only a fresh
 
 | File | Change |
 |---|---|
-| `components/ChatTest.brs` → `components/ChatIrc.brs` | Renamed, and rewritten. It used a hot `while true` loop reading the socket a character at a time; it now uses the documented `roStreamSocket` pattern — `SetMessagePort` + `notifyReadable` + `wait()` — with an accumulator so a line split across two TCP reads is not published half-formed. It runs for the lifetime of the app and reconnects when its `channel` field changes. Messages are queued and handed to the renderer one at a time. |
-| `components/ChatTest.xml` → `components/ChatIrc.xml` | Renamed. |
-| `components/Chat.brs` | Now creates `ChatIrc` instead of `ChatLog`, starts it once, and no longer stops it when the panel is hidden. The IRC line parser was rewritten (see below), and badge lookup now uses the Helix shape. |
-| `components/ChatLog.brs` | The EventSub transport, removed from this repository's tree — it was never committed here. It survives only in the pre-merge clone `twitch-reloaded-roku` and in the parked stash; see [stashed-websocket-client.md](stashed-websocket-client.md). |
+| `components/ChatIrc.brs` | The IRC transport. It runs for the lifetime of the app, watches its own `channel` field and reconnects when it changes, using the documented `roStreamSocket` pattern — `SetMessagePort` + `notifyReadable` + `wait()` — with an accumulator so a line split across two TCP reads is not published half-formed. Messages are queued and handed to the renderer one at a time. |
+| `components/ChatIrc.xml` | The transport's node definition. |
+| `components/Chat.brs` | Creates `ChatIrc` (`Chat.brs:5`), starts it once (`Chat.brs:15`), and no longer stops it when the panel is hidden. The IRC line parser was rewritten (see below), and badge lookup now uses the Helix shape. |
+| `components/common/WebSocket.brs` | An RFC 6455 WebSocket client over `ws://` only. It is not used by the chat today — the IRC transport needs no WebSocket — but it is a self-contained, working client that could talk to any plain WebSocket endpoint. |
 
 ### Verified on device
 
@@ -187,14 +189,14 @@ With the transport pointed at a live channel:
 ```
 ChatIrc > chat transport started
 ChatIrc > connected to irc.chat.twitch.tv:6667
-ChatIrc >> JOIN > legendsofavantris
+ChatIrc >> JOIN > <channel>
 ChatIrc > :tmi.twitch.tv NOTICE * :Login unsuccessful
 ChatIrc > socket closed
 ```
 
 The Roku **can** open a TCP connection to Twitch's IRC server — that was the
 biggest unknown. `Login unsuccessful` is the expected result with the token
-the backend currently mints; it is the scope problem above, not the transport.
+the backend used to mint; it is the scope problem above, not the transport.
 
 ### The renderer had real parsing bugs
 
@@ -202,8 +204,8 @@ Simulating the old parser against a real captured line:
 
 | Field | Old result | Now |
 |---|---|---|
-| `display_name` | `'=Martineli426'` (kept the `=`) | `Martineli426` |
-| `color` | `'=#FF69B4'` (kept the `=`) | `FF69B4` |
+| `display_name` | `='<display name>'` (kept the `=`) | `<display name>` |
+| `color` | `'#FF69B4'` (kept the `=`) | `FF69B4` |
 | `badges` | `['=subscriber/3', …]` | `['subscriber/3', …]` |
 | `message` | `'l'` — **chopped by four characters** | the full text |
 
@@ -225,9 +227,10 @@ fetch returns the global badges *and* the channel's own.
 
 ## Still to verify on a device
 
-- **The message rendering**, once the backend has been changed and the account
-  has re-logged in. The transport, the parser and the badge lookup have all been
-  checked; what has not been seen is a real message drawn in the chat panel.
+- **The message rendering**, once the backend has been deployed and the
+  account has re-logged in. The transport, the parser and the badge lookup
+  have all been checked; what has not been seen is a real message drawn in
+  the chat panel.
 - **The send path** (`chat:edit`). **No chat message was ever sent while
   developing this** — every test was `CAP REQ` / `PASS` / `NICK` / `JOIN` plus
   reads.

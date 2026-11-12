@@ -1,9 +1,8 @@
 ' Clean RFC 6455 WebSocket client for BrightScript.
 '
 ' Supports ws:// only. wss:// will fail with an on_error event explaining why
-' (Roku's roStreamSocket has no TLS, and the hand-rolled TLS that was in
-' components/web_socket_client/ could not complete a handshake - see
-' .known_issues/stashed-websocket-client.md).
+' (Roku's roStreamSocket has no TLS, and a hand-rolled TLS stack cannot
+' complete a handshake - see .known_issues/tls-1.3-on-roku.md).
 '
 ' Drive m.run() from a task loop. Events are posted to the message port set
 ' via set_message_port(). Each event is an roAssociativeArray:
