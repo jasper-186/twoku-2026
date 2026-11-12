@@ -73,13 +73,17 @@ function getStreamLink() as Object
 end function
 
 
-function getUserIdFromLogin(login as String) as Integer
+function getUserIdFromLogin(login as String, depth = 1) as Integer
     user = lookupUserByLogin(login)
     if user = invalid
         return 0
     end if
     if user.status <> invalid and user.status = 401
-        ? "401 - GetUser"
+        ? "401 - GetUserId"
+        refreshToken(true)
+        if depth < 3
+            return getUserIdFromLogin(login, depth + 1)
+        end if
         return 0
     end if
     ? "Found user id " + user.id + " with login " + user.login + " for login " + login

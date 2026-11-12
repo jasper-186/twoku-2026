@@ -81,7 +81,6 @@ sub connectToChannel(channel as string)
             m.global.addFields({ globalBadges: badges, channelBadges: badges })
         end if
         m.badgesChannel = channel_user_id
-        ensureChannelBTTVEmotes(channel_user_id)
         ensureChannelFFZEmotes(channel_user_id)
     end if
 

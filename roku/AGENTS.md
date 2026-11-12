@@ -194,8 +194,8 @@ a helper is only in scope inside the component that included it.
 | File | Provides |
 |---|---|
 | `common/Http.brs` | `newUrlTransfer()`, `waitForAppToken()`, `waitForUserToken()` |
-| `common/TwitchAuth.brs` | `createUrl()`, `createUserUrl()`, `GETJSON()`, `validateToken()`, `refreshToken()`, `refreshUserToken()`, `refreshAppToken()`, `getUserRefreshToken()`, `saveLogin()`, `clearLogin()` |
-| `common/TwitchApi.brs` | `lookupUserByLogin()`, `lookupUserByLoginAuthed()`, `ensureGlobalBTTVEmotes()`, `ensureChannelBTTVEmotes()`, `ensureChannelFFZEmotes()` |
+| `common/TwitchAuth.brs` | `createUrl()`, `createUserUrl()`, `GETJSON()`, `GETJSONPublic()`, `redactToken()`, `validateToken()`, `refreshToken()`, `refreshUserToken()`, `refreshAppToken()`, `getUserRefreshToken()`, `saveLogin()`, `clearLogin()` |
+| `common/TwitchApi.brs` | `lookupUserByLogin()`, `lookupUserByLoginAuthed()`, `ensureGlobalBTTVEmotes()`, `ensureChannelFFZEmotes()` |
 | `common/TwitchImages.brs` | `resizeTwitchImageUrl()` |
 | `common/Format.brs` | `formatCountAbbrev()`, `secondsSinceISO8601()`, `formatElapsedHMS()` |
 | `common/Registry.brs` | `checkRegistrySection()`, `setRegistrySection()` — included by `MainScene.xml` only, so these are in scope in `MainScene` alone |
@@ -210,9 +210,18 @@ user-token-vs-app-token fallback:
   token.
 - `createUserUrl()` — authed transfer; returns `invalid` if no user token (use
   for endpoints that require user auth).
-- `GETJSON(link)` — one-shot GET + parse.
+- `GETJSON(link)` — one-shot GET + parse. Attaches the Twitch credentials,
+  so it is only for Twitch's own endpoints.
+- `GETJSONPublic(link)` — one-shot GET + parse with **no** credentials
+  attached. Use it for third-party APIs (BetterTTV, FrankerFaceZ) — they have
+  no business seeing the user's Twitch token.
+- `redactToken(token)` — a short hint for a credential, for log lines.
 - `validateToken`, `refreshToken`, `refreshUserToken`, `refreshAppToken` —
   token lifecycle; the refresh path round-trips through the companion backend.
+  `refreshToken(force)` skips the "still valid" short circuit: a caller that
+  has just seen a 401 needs a refresh even when the stored token looks fine,
+  because the token that failed and the token in the registry are not
+  necessarily the same one.
 
 POSTs are not wrapped in a helper. `GetLiveStream.brs`,
 `GetPreviousLiveStreamVideo.brs` and `GetAuth.brs` each build their own
@@ -238,10 +247,9 @@ Notable keys:
 | `videoFramerate` | 30 or 60 — persisted but never consumed by playback | `MainScene.brs:92`/`:94`, `Options.brs:48`/`:50` |
 | `chatOption` | Chat on/off — persisted but not wired to chat visibility (see gaps) | `MainScene.brs:100`/`:102`, `Options.brs:69` |
 | `globalBadges` | Chat badge cache (Helix shape) | `ChatIrc.brs` |
-| `globalTTVEmotes` | BetterTTV global emotes, keyed by code | `common/TwitchApi.brs:35` |
+| `globalTTVEmotes` | BetterTTV global emotes, keyed by code | `common/TwitchApi.brs` |
 | `channelBadges` | Per-channel badges (Helix shape) | `ChatIrc.brs` |
-| `channelTTVEmotes` | BetterTTV channel-shared emotes | `common/TwitchApi.brs:47`/`:49` |
-| `channelTTVFrankerEmotes` | FrankerFaceZ channel emotes | `common/TwitchApi.brs:61`/`:63` |
+| `channelTTVFrankerEmotes` | FrankerFaceZ channel emotes | `common/TwitchApi.brs` |
 
 The recently-watched list is **not** on `m.global` — it lives in the
 `LoggedInUserData` registry section under `RecentStreamers`
@@ -328,6 +336,13 @@ IRCv3 tags.
   `data[].set_id`, `data[].versions[].image_url_1x`). The legacy
   `badges.twitch.tv` host no longer resolves. One fetch returns the global
   badges and the channel's own.
+- Chat emotes come from two third-party APIs, fetched with `GETJSONPublic()`
+  so the user's Twitch token is not sent to them. BetterTTV's
+  `cached/users/twitch/<id>` endpoint — the source of the per-channel shared
+  emotes — was retired upstream and now answers `404 {"message":"user not
+  found"}` for every channel, so that feature has been dropped. The global
+  BetterTTV list (`cached/emotes/global`) and the FrankerFaceZ list still
+  work.
 
 `components/common/WebSocket.brs` is an RFC-6455 BrightScript WebSocket
 client. It is `ws://`-only: `roStreamSocket` has no native TLS, so a
@@ -353,15 +368,11 @@ conventions](.known_issues/README.md).
 - **`GetLiveStream.brs:55`** — the request assoc array has a malformed literal
   (a stray `"` before `"resolution": "720p60"`), so the JSON body posted to
   `/getlivestream` is invalid.
-- **`common/TwitchAuth.brs:90`** — `refreshAppToken()` calls
+- **`common/TwitchAuth.brs`** — `refreshAppToken()` calls
   `waitForAppToken()`, which busy-waits on `m.global.appBearerToken`.
   `HomeScene.init` starts `GetStreams` before `MainScene.init` defines it, so
   the first browse request can abort on a type error.
-- **`common/TwitchAuth.brs:192`** — `clearLogin()` sets
-  `m.global.userToken = invalid`, which makes `waitForUserToken()` spin
-  forever. Logging out wedges every subsequent API call (and `createUrl()`
-  waits on the user token even though it has an app-token fallback).
-- **`common/TwitchAuth.brs:165`** — writes the registry key
+- **`common/TwitchAuth.brs`** — writes the registry key
   `LoggedInUserId`. Nothing reads that key back — `GetUser.brs:5-6` reads
   `LoggedInUserName` instead — so the write is dead. Verify whether the write
   is still wanted.

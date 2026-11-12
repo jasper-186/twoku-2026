@@ -65,6 +65,18 @@ function init()
         ? "RESETTED"
     end if
     
+    ' Seed the user token before anything can ask for it. GetUser starts
+    ' below, and a browse refresh may already have replaced the token in the
+    ' registry - do not overwrite that with the older copy.
+    if m.global.userToken = invalid
+        userToken = checkRegistrySection("LoggedInUserData", "UserToken")
+        if userToken <> invalid and userToken <> ""
+            m.global.addFields({userToken: userToken})
+        else
+            m.global.addFields({userToken: ""})
+        end if
+    end if
+
     ' registry = CreateObject("roRegistry")
     ' registry.Delete("LoggedInUserNameData")
     ' registry.Delete("VideoSettings")
@@ -100,14 +112,6 @@ function init()
         m.global.addFields({chatOption: true})
     else
         m.global.addFields({chatOption: false})
-    end if
-
-    ' userToken = checkUserToken()
-    userToken = checkRegistrySection("LoggedInUserData", "UserToken")
-    if userToken <> invalid and userToken <> ""
-        m.global.addFields({userToken: userToken})
-    else
-        m.global.addFields({userToken: ""})
     end if
 
     ' videoBookmarks = checkVideoBookmarks()

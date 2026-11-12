@@ -11,12 +11,12 @@ function createUrl()
     userToken = m.global.userToken
     if userToken <> ""
         ? "Found UserToken:"
-        ? "UserToken: " userToken
-        ? "AuthHeader: Authorization Bearer " + userToken
+        ? "UserToken: " + redactToken(userToken)
+        ? "AuthHeader: Authorization Bearer " + redactToken(userToken)
         url.AddHeader("Authorization", "Bearer " + userToken)
     else
         ? "No UserToken found, using app token"
-        ? "AuthHeader: Authorization Bearer " + m.global.appBearerToken
+        ? "AuthHeader: Authorization Bearer " + redactToken(m.global.appBearerToken)
         url.AddHeader("Authorization", "Bearer " + m.global.appBearerToken)
     end if
     return url
@@ -39,9 +39,46 @@ function createUserUrl()
     ' Wait until we have an app token, as it also sets the client id which is required for all requests
     url.AddHeader("Client-ID", m.global.appClientId)
     ? "AuthHeader: Client-ID " + m.global.appClientId
-    ? "AuthHeader: Authorization Bearer " + userToken
+    ? "AuthHeader: Authorization Bearer " + redactToken(userToken)
     url.AddHeader("Authorization", "Bearer " + userToken)
     return url
+end function
+
+' A short, non-reversible hint for a credential, so the device log can be
+' correlated without holding the secret itself.
+function redactToken(token) as String
+    if token = invalid or token = ""
+        return ""
+    end if
+    if Len(token) <= 8
+        mask = ""
+        for i = 1 to Len(token)
+            mask = mask + "*"
+        end for
+        return mask
+    end if
+    return Left(token, 4) + "...(" + Str(Len(token)) + " chars)"
+end function
+
+' A one-shot GET with no credentials attached. Third party APIs have no
+' business seeing the Twitch token, so they get this instead of GETJSON.
+function GETJSONPublic(link as String) as Object
+    url = newUrlTransfer()
+    url.SetUrl(link.EncodeUri())
+
+    response_string = url.GetToString()
+
+    if response_string = invalid or response_string = ""
+        ? "GETJSONPublic return empty object for: " + link
+        return {}
+    end if
+
+    parsed = ParseJson(response_string)
+    if parsed = invalid
+        ? "GETJSONPublic could not parse the response for: " + link
+        return {}
+    end if
+    return parsed
 end function
 
 function GETJSON(link as String) as Object
@@ -58,7 +95,7 @@ function GETJSON(link as String) as Object
 end function
 
 function validateToken(token as string) as Object
-    ? "Validating token: " + token
+    ? "Validating token: " + redactToken(token)
     url = newUrlTransfer()
     url.SetUrl("https://id.twitch.tv/oauth2/validate")
     url.AddHeader("Authorization", "Bearer " + token)
@@ -75,9 +112,9 @@ function validateToken(token as string) as Object
 end function
 
 
-function refreshToken() as void
+function refreshToken(force = false) as void
     ? "Refreshing user token..."
-    refreshUserToken()
+    refreshUserToken(force)
     ? "Refreshing app token..."
     refreshAppToken()
 end function
@@ -108,16 +145,22 @@ function refreshAppToken() as void
     m.global.setField("appBearerToken", response.access_token)
 end function
 
-function refreshUserToken() as void
+function refreshUserToken(force = false) as void
     sec = createObject("roRegistrySection", "LoggedInUserData")
     if NOT sec.Exists("UserToken") or sec.Read("UserToken") = ""
          ? "No user token found, skipping refresh"
          return
     end if
-    ? "Validating user token..."
-    if validateToken(sec.Read("UserToken")) <> invalid
-        ? "User token is still valid, skipping refresh"
-        return
+    ' A caller that got a 401 has already proved the token it used is no
+    ' good. The stored token may have been replaced by a refresh that landed
+    ' in the meantime, so the validity check alone would skip the refresh
+    ' and retry with the same token.
+    if NOT force
+        ? "Validating user token..."
+        if validateToken(sec.Read("UserToken")) <> invalid
+            ? "User token is still valid, skipping refresh"
+            return
+        end if
     end if
     url = newUrlTransfer()
     url.SetUrl(getBackendBaseUrl() + "/refresh")
@@ -131,9 +174,17 @@ function refreshUserToken() as void
     end if
     url.AsyncPostFromString("code=" + token)
     msg = port.WaitMessage(0)
-    ? "Refresh response: " + msg.GetString()
-    oauth_token = ParseJson(msg.GetString())
-    if oauth_token = invalid or oauth_token.access_token = invalid or oauth_token.refresh_token = invalid
+    if msg = invalid
+        ? "No response from the backend - keeping the stored login"
+        return
+    end if
+    response_text = msg.GetString()
+    oauth_token = ParseJson(response_text)
+    if oauth_token = invalid
+        ? "Could not read the refresh response - keeping the stored login"
+        return
+    end if
+    if oauth_token.access_token = invalid or oauth_token.refresh_token = invalid
         ? "Invalid tokens received during refresh"
         clearLogin()
         return
@@ -164,7 +215,7 @@ function saveLogin(access_token, refresh_token, login, user_id = "") as void
     if user_id <> ""
         sec.Write("LoggedInUserId", user_id)
     end if
-    ? "Setting user token: " + access_token
+    ? "Setting user token: " + redactToken(access_token)
     m.global.setField("userToken", access_token)
     sec.Flush()
 end function
@@ -189,11 +240,25 @@ function clearLogin() as void
     end if
     sec.Flush()
 
-    m.global.setField("userToken", invalid)
-    m.login = ""
-    m.getUser.loggedInUserName = ""
-    m.homeScene.loggedInUserName = ""
-    m.homeScene.loggedInUserProfileImage = ""
-    m.chat.loggedInUserName = ""
+    ' The empty string is the anonymous state. "invalid" is the state that
+    ' means the token has not been set yet, and waitForUserToken() spins on
+    ' it - leaving it there would wedge every request that follows.
+    m.global.setField("userToken", "")
+
+    ' These nodes live on MainScene. The tasks that call this do not have
+    ' them, so only touch the ones that are actually there.
+    if m.login <> invalid
+        m.login = ""
+    end if
+    if m.getUser <> invalid
+        m.getUser.loggedInUserName = ""
+    end if
+    if m.homeScene <> invalid
+        m.homeScene.loggedInUserName = ""
+        m.homeScene.loggedInUserProfileImage = ""
+    end if
+    if m.chat <> invalid
+        m.chat.loggedInUserName = ""
+    end if
 end function
 

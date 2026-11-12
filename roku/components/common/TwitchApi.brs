@@ -27,36 +27,31 @@ sub ensureGlobalBTTVEmotes()
     if m.global.globalTTVEmotes <> invalid
         return
     end if
-    temp = GETJSON("https://api.betterttv.net/3/cached/emotes/global")
     assocEmotes = {}
-    for each emote in temp
-        assocEmotes[emote.code] = emote.id
-    end for
-    m.global.addFields({ globalTTVEmotes: assocEmotes })
-end sub
-
-' Populates m.global.channelTTVEmotes (BTTV channel-shared emotes keyed by code).
-' Overwrites on subsequent channel switches.
-sub ensureChannelBTTVEmotes(channelId as String)
-    temp = GETJSON("https://api.betterttv.net/3/cached/users/twitch/" + channelId)
-    assocEmotes = {}
-    for each emote in temp.sharedEmotes
-        assocEmotes[emote.code] = emote.id
-    end for
-    if m.global.channelTTVEmotes = invalid
-        m.global.addFields({channelTTVEmotes: assocEmotes})
-    else
-        m.global.setField("channelTTVEmotes", assocEmotes)
+    temp = GETJSONPublic("https://api.betterttv.net/3/cached/emotes/global")
+    if Type(temp) = "roArray"
+        for each emote in temp
+            if Type(emote) = "roAssociativeArray" and emote.code <> invalid
+                assocEmotes[emote.code] = emote.id
+            end if
+        end for
+    end if
+    if assocEmotes.Count() > 0
+        m.global.addFields({ globalTTVEmotes: assocEmotes })
     end if
 end sub
 
 ' Populates m.global.channelTTVFrankerEmotes (FFZ channel emotes keyed by code → 1x image URL).
 sub ensureChannelFFZEmotes(channelId as String)
-    temp = GETJSON("https://api.betterttv.net/3/cached/frankerfacez/users/twitch/" + channelId)
     assocEmotes = {}
-    for each emote in temp
-        assocEmotes[emote.code] = emote.images["1x"]
-    end for
+    temp = GETJSONPublic("https://api.betterttv.net/3/cached/frankerfacez/users/twitch/" + channelId)
+    if Type(temp) = "roArray"
+        for each emote in temp
+            if Type(emote) = "roAssociativeArray" and emote.code <> invalid and emote.images <> invalid
+                assocEmotes[emote.code] = emote.images["1x"]
+            end if
+        end for
+    end if
     if m.global.channelTTVFrankerEmotes = invalid
         m.global.addFields({channelTTVFrankerEmotes: assocEmotes})
     else

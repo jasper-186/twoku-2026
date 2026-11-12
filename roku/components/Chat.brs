@@ -307,105 +307,73 @@ sub onNewComment()
         end for
 
         'for each emote in m.global.globalTTVEmotes
-        if m.global.globalTTVEmotes.DoesExist(word) and not is_emote
-            message_text.translation = [x_translation, y_translation]
-            group.appendChild(message_text)
+        if m.global.globalTTVEmotes <> invalid
+            if m.global.globalTTVEmotes.DoesExist(word) and not is_emote
+                message_text.translation = [x_translation, y_translation]
+                group.appendChild(message_text)
 
-            message_text = createObject("roSGNode", "SimpleLabel")
-            message_text.fontSize = "14"
-            message_text.fontUri = "pkg:/fonts/Inter-Regular.ttf"
-            message_text.visible = true
-            message_text.text = ""
+                message_text = createObject("roSGNode", "SimpleLabel")
+                message_text.fontSize = "14"
+                message_text.fontUri = "pkg:/fonts/Inter-Regular.ttf"
+                message_text.visible = true
+                message_text.text = ""
 
-            x_translation += width
+                x_translation += width
 
-            poster = createObject("roSGNode", "Poster")
-            poster.uri = "https://cdn.betterttv.net/emote/" + m.global.globalTTVEmotes[word] + "/1x"
-            poster.visible = true
-            poster.translation = [x_translation, y_translation - 5]
+                poster = createObject("roSGNode", "Poster")
+                poster.uri = "https://cdn.betterttv.net/emote/" + m.global.globalTTVEmotes[word] + "/1x"
+                poster.visible = true
+                poster.translation = [x_translation, y_translation - 5]
 
-            group.appendChild(poster)
+                group.appendChild(poster)
 
-            x_translation += 35
+                x_translation += 35
 
-            if x_translation >= 230 or word_number = message_chars.Count()
-                x_translation = 0
-                y_translation += 23
+                if x_translation >= 230 or word_number = message_chars.Count()
+                    x_translation = 0
+                    y_translation += 23
+                end if
+
+                is_emote = true
+                appended_last_line = true
             end if
-
-            is_emote = true
-            appended_last_line = true
         end if
         'end for
 
-        if m.global.channelTTVEmotes <> invalid and not is_emote
-            'for each emote in m.global.channelTTVEmotes.sharedEmotes
-            if m.global.channelTTVEmotes.DoesExist(word)
-                message_text.translation = [x_translation, y_translation]
-
-                group.appendChild(message_text)
-
-                message_text = createObject("roSGNode", "SimpleLabel")
-                message_text.fontSize = "14"
-                message_text.fontUri = "pkg:/fonts/Inter-Regular.ttf"
-                message_text.visible = true
-                message_text.text = ""
-
-                x_translation += width
-
-                poster = createObject("roSGNode", "Poster")
-                poster.uri = "https://cdn.betterttv.net/emote/" + m.global.channelTTVEmotes[word] + "/1x"
-                poster.visible = true
-                poster.translation = [x_translation, y_translation - 5]
-
-                group.appendChild(poster)
-
-                x_translation += 35
-
-                if x_translation >= 230 or word_number = message_chars.Count()
-                    x_translation = 0
-                    y_translation += 23
-                end if
-
-                is_emote = true
-                appended_last_line = true
-            end if
-            'end for
-        end if
-
-        if m.global.channelTTVFrankerEmotes <> invalid and not is_emote
+        if m.global.channelTTVFrankerEmotes <> invalid
             'for each emote in m.global.channelTTVFrankerEmotes
-            if m.global.channelTTVFrankerEmotes.DoesExist(word)
-                message_text.translation = [x_translation, y_translation]
+            if not is_emote
+                if m.global.channelTTVFrankerEmotes.DoesExist(word)
+                    message_text.translation = [x_translation, y_translation]
 
-                group.appendChild(message_text)
+                    group.appendChild(message_text)
 
-                message_text = createObject("roSGNode", "SimpleLabel")
-                message_text.fontSize = "14"
-                message_text.fontUri = "pkg:/fonts/Inter-Regular.ttf"
-                message_text.visible = true
-                message_text.text = ""
+                    message_text = createObject("roSGNode", "SimpleLabel")
+                    message_text.fontSize = "14"
+                    message_text.fontUri = "pkg:/fonts/Inter-Regular.ttf"
+                    message_text.visible = true
+                    message_text.text = ""
 
-                x_translation += width
+                    x_translation += width
 
-                poster = createObject("roSGNode", "Poster")
-                poster.uri = m.global.channelTTVFrankerEmotes[word]
-                poster.visible = true
-                poster.translation = [x_translation, y_translation - 5]
+                    poster = createObject("roSGNode", "Poster")
+                    poster.uri = m.global.channelTTVFrankerEmotes[word]
+                    poster.visible = true
+                    poster.translation = [x_translation, y_translation - 5]
 
-                group.appendChild(poster)
+                    group.appendChild(poster)
 
-                x_translation += 35
+                    x_translation += 35
 
-                if x_translation >= 230 or word_number = message_chars.Count()
-                    x_translation = 0
-                    y_translation += 23
+                    if x_translation >= 230 or word_number = message_chars.Count()
+                        x_translation = 0
+                        y_translation += 23
+                    end if
+
+                    is_emote = true
+                    appended_last_line = true
                 end if
-
-                is_emote = true
-                appended_last_line = true
             end if
-            'end for
         end if
 
         if not is_emote

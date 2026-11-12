@@ -86,7 +86,7 @@ function convertDurationFormat(org_duration as String) as String
     return new_duration
 end function
 
-function getSearchResults() as Object
+function getSearchResults(depth = 1) as Object
     search_results_url = "https://api.twitch.tv/helix/videos?user_id=" + m.top.userId
 
     url = createUrl()
@@ -105,8 +105,13 @@ function getSearchResults() as Object
     if search.status <> invalid and search.status = 401
         ? "401 - GetVideos"
         ? "401 - Response string: " + response_string
-        refreshToken()
-        return getSearchResults()
+        refreshToken(true)
+        if depth < 3
+            return getSearchResults(depth + 1)
+        else
+            ? "Failed to refresh token after 3 attempts"
+            return []
+        end if
     end if
 
     result = []

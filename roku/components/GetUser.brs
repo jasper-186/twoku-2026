@@ -40,7 +40,7 @@ function getUserSearchResults(depth = 1) as object
     end if
     if stream.status <> invalid and stream.status = 401
         ? "401 - GetUser"
-        refreshToken()
+        refreshToken(true)
         if depth < 3
             return getUserSearchResults(depth + 1)
         else

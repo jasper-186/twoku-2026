@@ -21,7 +21,7 @@ function getSearchResults(depth = 1) as Object
     stream = lookupUserByLogin(m.top.loginRequested)
     if stream <> invalid and stream.status <> invalid and stream.status = 401
         ? "401 - GetChannel"
-        refreshToken()
+        refreshToken(true)
         if depth < 3
             return getSearchResults(depth + 1)
         else

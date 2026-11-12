@@ -31,7 +31,7 @@ function getSearchResults(depth = 1) as Object
     if search.status <> invalid and search.status = 401
         ? "401 - GetCategories"
         ? "401 - Response string: " + response_string
-        refreshToken()
+        refreshToken(true)
         if depth < 3
             return getSearchResults(depth + 1)
         else

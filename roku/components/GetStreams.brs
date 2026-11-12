@@ -35,7 +35,7 @@ function getGameNameFromId(game_ids_url)
     end if
 end function
 
-function getStreamSearchResults() as Object
+function getStreamSearchResults(depth = 1) as Object
     search_results_url = "https://api.twitch.tv/helix/streams?first=21"
 
     if m.top.gameRequested <> ""
@@ -57,8 +57,13 @@ function getStreamSearchResults() as Object
     if search.status <> invalid and search.status = 401
         ? "401 - GetStreams"
         ? "401 - Response: " + response_string
-        return []
-        'return getStreamSearchResults()
+        refreshToken(true)
+        if depth < 3
+            return getStreamSearchResults(depth + 1)
+        else
+            ? "Failed to refresh token after 3 attempts"
+            return []
+        end if
     end if
 
     game_ids_url = "https://api.twitch.tv/helix/games?id="
