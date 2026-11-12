@@ -89,13 +89,39 @@ The service listens on port 8080 in production (`gunicorn`), and
 
 ## Continuous integration
 
-[`.forgejo/workflows/`](.forgejo/workflows/) builds and pushes the backend
-Docker image to `registry.clstr.dev`:
+[`.github/workflows/release.yml`](.github/workflows/release.yml) builds both
+halves and publishes them. It runs on a version tag (`v1.2.3` or
+`release-1.2.3`) or on manual dispatch.
 
-- `build-push-docker-image.yaml` — on a `release-v*` tag. Publishes
-  `twoku-webapp:latest` and `twoku-webapp:<version>`.
-- `build-push-docker-image-branch.yaml` — on any non-`main` branch. Publishes
-  `twoku-webapp-<branch>:latest`.
+- **Backend** — the Docker image is built from `backend/Dockerfile` and pushed
+  to GitHub Container Registry as `ghcr.io/<owner>/<repo>/backend`, tagged with
+  the version, the commit SHA, and `latest` for non-prereleases. The image is
+  smoke-tested (Django system check, then the device page is fetched from a
+  running container) *before* it is pushed, so a broken image never reaches
+  the registry.
+- **Frontend** — the Roku app is compile-checked with `bsc`, packaged into
+  `twoku-<version>.zip`, and attached to a GitHub Release. The manifest's
+  `build_version` is set to the workflow run number, so every release is
+  installable over the previous one.
+
+The release only publishes once both jobs succeed, so a download link never
+points at a release whose backend image failed to build.
+
+### Setup
+
+- The repository must be on GitHub for the workflow to run.
+- After the first image push, make the `backend` package **public** in the
+  repository's **Packages** settings — GitHub Container Registry defaults to
+  private.
+- Set the repository variable `ROKU_BASE_URL` to point the packaged app at
+  your backend. When it is unset the app is built against the default
+  deployment.
+
+### Releases are unsigned
+
+The published zip is not signed, so installing it requires the Roku to be in
+[developer mode](https://blog.roku.com/developer/developer-setup-guide).
+See [`roku/README.md`](roku/README.md) for the install steps.
 
 ## Self-hosting
 

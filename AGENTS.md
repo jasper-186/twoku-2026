@@ -8,7 +8,7 @@ Guidance for AI coding agents working in this repository.
 |---|---|
 | `roku/` | The Roku application — BrightScript on SceneGraph. The deliverable. |
 | `backend/` | The companion Django service. Holds the Twitch client secret. |
-| `.forgejo/workflows/` | CI. Builds and pushes the backend Docker image. |
+| `.github/workflows/` | CI. Builds the backend Docker image and the Roku package. |
 
 **Read `roku/CLAUDE.md` before touching the Roku code — it is the canonical
 reference.** It documents the scene graph layout, the `Get*` Task-node
@@ -63,8 +63,8 @@ silently as part of unrelated work.
 ## Secrets
 
 The repository is intended to be public. Credentials are not committed:
-they are supplied as environment variables (backend) or Forgejo Actions
-secrets (CI). See the root `README.md` and `.forgejo/workflows/` for how each
+they are supplied as environment variables (backend) or GitHub Actions
+secrets (CI). See the root `README.md` and `.github/workflows/` for how each
 one is injected. If you find a credential committed in plaintext, do not
 reproduce it — replace it with a variable and say so.
 

@@ -98,9 +98,12 @@ Migrations are applied by `docker-entrypoint.sh` when the container starts,
 not at build time, because the database may live on a mounted volume that is
 not part of the image.
 
-The CI workflows in [`.forgejo/workflows/`](../.forgejo/workflows/) build and
-push it to `registry.clstr.dev`. They expect the registry credentials in the
-Forgejo Actions secrets `REGISTRY_USERNAME` and `REGISTRY_PASSWORD`.
+The CI workflow in [`.github/workflows/release.yml`](../.github/workflows/release.yml)
+builds this image and pushes it to GitHub Container Registry as
+`ghcr.io/<owner>/<repo>/backend`, tagged with the release version, the commit
+SHA, and `latest`. It uses the automatic `GITHUB_TOKEN`, so no registry
+credentials are configured in the repository. See the root
+[`README.md`](../README.md#continuous-integration) for details.
 
 ## Notes
 
