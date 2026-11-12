@@ -44,22 +44,6 @@ function createUserUrl()
     return url
 end function
 
-' A short, non-reversible hint for a credential, so the device log can be
-' correlated without holding the secret itself.
-function redactToken(token) as String
-    if token = invalid or token = ""
-        return ""
-    end if
-    if Len(token) <= 8
-        mask = ""
-        for i = 1 to Len(token)
-            mask = mask + "*"
-        end for
-        return mask
-    end if
-    return Left(token, 4) + "...(" + Str(Len(token)) + " chars)"
-end function
-
 ' A one-shot GET with no credentials attached. Third party APIs have no
 ' business seeing the Twitch token, so they get this instead of GETJSON.
 function GETJSONPublic(link as String) as Object
@@ -137,8 +121,12 @@ function refreshAppToken() as void
     url.SetUrl(access_token_url)
     response_string = url.GetToString()
 
-    ? "GetToken[refresh] response: " + response_string
     response = ParseJson(response_string)
+    if response <> invalid and response.access_token <> invalid
+        ? "GetToken[refresh] response: " + redactToken(response.access_token)
+    else
+        ? "GetToken[refresh] response: no access token"
+    end if
 
     ' m.top is the task this runs in, not the scene, so writing the token
     ' there dropped it on the floor. The app reads it from the global field.
@@ -196,7 +184,7 @@ function refreshUserToken(force = false) as void
     ? "Response: " + res
     response = ParseJson(res)
 
-    saveLogin(oauth_token.access_token, oauth_token.refresh_token, response.login, response.user_id)
+    saveLogin(oauth_token.access_token, oauth_token.refresh_token, response.login)
 end function
 
 function getUserRefreshToken()
@@ -207,14 +195,11 @@ function getUserRefreshToken()
     return ""
 end function
 
-function saveLogin(access_token, refresh_token, login, user_id = "") as void
+function saveLogin(access_token, refresh_token, login) as void
     sec = createObject("roRegistrySection", "LoggedInUserData")
     sec.Write("UserToken", access_token)
     sec.Write("RefreshToken", refresh_token)
     sec.Write("LoggedInUserName", login)
-    if user_id <> ""
-        sec.Write("LoggedInUserId", user_id)
-    end if
     ? "Setting user token: " + redactToken(access_token)
     m.global.setField("userToken", access_token)
     sec.Flush()
@@ -231,9 +216,6 @@ function clearLogin() as void
     end if
     if sec.Exists("LoggedInUserName")
         sec.Delete("LoggedInUserName")
-    end if
-    if sec.Exists("LoggedInUserId")
-        sec.Delete("LoggedInUserId")
     end if
     if sec.Exists("Reset")
         sec.Delete("Reset")

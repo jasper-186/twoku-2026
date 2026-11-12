@@ -16,7 +16,11 @@ function getAppCredentials() as Object
     
     response_string = url.GetToString()
 
-    ? "GetToken response: " + response_string
     response = ParseJson(response_string)
+    if response <> invalid and response.access_token <> invalid
+        ? "GetToken response: " + redactToken(response.access_token)
+    else
+        ? "GetToken response: no access token"
+    end if
     return response
 end function

@@ -52,7 +52,6 @@ function getStreamLink() as Object
         "twitch_channel": requestedStreamer,
         "access_token": token.EncodeUri(),
         "resolution": videoQualityText
-        '"resolution": "720p60"
     }
     
     url.AsyncPostFromString(FormatJson(request))
@@ -68,7 +67,7 @@ function getStreamLink() as Object
     ? "Stream Quality Text"
     ? videoQualityText
     ? "Stream Quality Url"
-    ? stream_quality.master
+    ? redactUrl(stream_quality.master)
     return stream_quality.master
 end function
 

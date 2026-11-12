@@ -48,9 +48,9 @@ function init()
     m.getUser = createObject("roSGNode", "GetUser")
     m.getUser.observeField("searchResults", "onUserLogin")
 
-    m.testtimer = m.top.findNode("testTimer")
-    m.testtimer.control = "start"
-    m.testtimer.ObserveField("fire", "refreshFollows")
+    m.followsRefreshTimer = m.top.findNode("followsRefreshTimer")
+    m.followsRefreshTimer.control = "start"
+    m.followsRefreshTimer.ObserveField("fire", "refreshFollows")
 
     if checkRegistrySection("LoggedInUserData", "Reset") = invalid
         ' Registry writes are not committed until Flush() is called, and each
@@ -96,14 +96,6 @@ function init()
         m.global.addFields({videoQuality: Int(Val(videoQuality))})
     else
         m.global.addFields({videoQuality: 2})
-    end if
-
-    ' videoFramerate = checkSavedVideoFramerate()
-    videoFramerate = checkRegistrySection("VideoSettings", "VideoFramerate")
-    if videoQuality <> invalid
-        m.global.addFields({videoFramerate: Int(Val(videoFramerate))})
-    else
-        m.global.addFields({videoFramerate: 60})
     end if
 
     ' chatOption = checkSavedChatOption()
@@ -374,8 +366,7 @@ function onStreamChange()
         m.chat.broadcasterUserId = m.categoryScene.streamerUserId
         m.stream["url"] = m.categoryScene.streamUrl
     end if
-    ' m.chat.visible = m.global.chatOption
-    ' m.videoPlayer.chatIsVisible = m.chat.visible
+    ' onToggleStreamLayout applies the chat option.
     onToggleStreamLayout()
     m.videoPlayer.setFocus(true)
     m.keyboardGroup.visible = false
@@ -385,7 +376,9 @@ function onStreamChange()
 end function
 
 function refreshFollows()
-    if m.login <> ""
+    ' Only refresh while the user is browsing. The video player covers the
+    ' screen when a stream is playing, and there is nothing to refresh then.
+    if m.login <> "" and m.videoPlayer.visible = false
         m.getUser.loggedInUserName = m.login
         m.getUser.control = "RUN"
     end if
@@ -432,12 +425,12 @@ sub onToggleStreamLayout()
     if m.videoPlayer.streamLayoutMode = 0 'stream is shrinked
         m.videoPlayer.width = 1030
         m.videoPlayer.height = 720
-        m.chat.visible = true
+        m.chat.visible = m.global.chatOption
         m.videoPlayer.chatIsVisible = m.chat.visible
     else if m.videoPlayer.streamLayoutMode = 1 'layout with chat on top of stream
         m.videoPlayer.width = 0
         m.videoPlayer.height = 0
-        m.chat.visible = true
+        m.chat.visible = m.global.chatOption
         m.videoPlayer.chatIsVisible = m.chat.visible
     else if m.videoPlayer.streamLayoutMode = 2 'no chat layout fullscreen
         m.videoPlayer.width = 0

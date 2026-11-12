@@ -30,7 +30,6 @@ end sub
 sub saveVideoSettings() as Void
     sec = createObject("roRegistrySection", "VideoSettings")
     sec.Write("VideoQuality", m.global.videoQuality.ToStr())
-    sec.Write("VideoFramerate", m.global.videoFramerate.ToStr())
     sec.Write("ChatOption", m.global.chatOption.ToStr())
     sec.Flush()
 end sub
@@ -44,11 +43,6 @@ sub onKeyEvent(key, press) as Boolean
             if m.videoQualityDropdown.hasFocus()
                 if m.global.videoQuality <> invalid
                     m.global.setField("videoQuality", m.currentVideoQualitySelected)
-                    if m.currentVideoQualitySelected = 0 or m.currentVideoQualitySelected = 2
-                        m.global.setField("videoFramerate", 60)
-                    else
-                        m.global.setField("videoFramerate", 30)
-                    end if
                 end if
                 saveVideoSettings()
                 m.currentVideoQuality.text = m.videoQualities[m.currentVideoQualitySelected]

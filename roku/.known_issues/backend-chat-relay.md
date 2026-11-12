@@ -59,11 +59,10 @@ Roku app                          Backend                      Twitch
      an app token), `type: channel.chat.message`, `version: 1`,
      `condition: { broadcaster_user_id, user_id }` and
      `transport: { method: "websocket", session_id }`.
-   - `user_id` is the *signed-in* user's id. The device now has it: it is
-     written to the `LoggedInUserId` registry key at login
-     (`components/common/TwitchAuth.brs:165`) and passed to the chat component
-     at runtime (`components/MainScene.brs:307`). The backend will need its own
-     copy of the id, which it can take from the token's `/validate` response.
+   - `user_id` is the *signed-in* user's id. The device has it at runtime:
+     `MainScene` passes `m.getUser.searchResults.id` to the chat component.
+     The backend will need its own copy of the id, which it can take from the
+     token's `/validate` response.
    - Subscribe within 10 seconds of the welcome message or Twitch closes the
      socket.
 2. **A per-channel buffer** of recent messages with a monotonically increasing

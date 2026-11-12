@@ -38,7 +38,7 @@
            visible="false" />
 
         <Timer
-            id="testTimer"
+            id="followsRefreshTimer"
             repeat="true"
             duration="300" />
 

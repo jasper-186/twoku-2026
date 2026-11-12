@@ -142,7 +142,7 @@ interface fields.
 | `GetClips` | `onSearchTextChange` | `searchResults` | `CategoryScene.brs:18` |
 | `GetOfflineFollowedChannels` | `onSearchTextChange` | `offlineFollowedUsers` | `HomeScene.brs:58` |
 | `GetLiveStream` | `onStreamerChange` | `streamUrl` | `HomeScene.brs:52`, `CategoryScene.brs:21`, `KeyboardGroup.brs:24`, `ChannelPage.brs:27` |
-| `GetPreviousLiveStreamVideo` | `onStreamerChange` | `streamUrl`, `thumbnailInfo` | `ChannelPage.brs:30` |
+| `GetPreviousLiveStreamVideo` | `onStreamerChange` | `streamUrl`, `thumbnailInfo` (the video id only) | `ChannelPage.brs:30` |
 | `GetUserChannel` | `onSearchTextChange` | `searchResults`, `streamDurationSeconds` | `ChannelPage.brs:21` |
 | `GetVideos` | `onSearchTextChange` | `searchResults` | `ChannelPage.brs:24` |
 
@@ -193,8 +193,8 @@ a helper is only in scope inside the component that included it.
 
 | File | Provides |
 |---|---|
-| `common/Http.brs` | `newUrlTransfer()`, `waitForAppToken()`, `waitForUserToken()` |
-| `common/TwitchAuth.brs` | `createUrl()`, `createUserUrl()`, `GETJSON()`, `GETJSONPublic()`, `redactToken()`, `validateToken()`, `refreshToken()`, `refreshUserToken()`, `refreshAppToken()`, `getUserRefreshToken()`, `saveLogin()`, `clearLogin()` |
+| `common/Http.brs` | `newUrlTransfer()`, `waitForAppToken()`, `waitForUserToken()`, `redactToken()`, `redactUrl()` |
+| `common/TwitchAuth.brs` | `createUrl()`, `createUserUrl()`, `GETJSON()`, `GETJSONPublic()`, `validateToken()`, `refreshToken()`, `refreshUserToken()`, `refreshAppToken()`, `getUserRefreshToken()`, `saveLogin()`, `clearLogin()` |
 | `common/TwitchApi.brs` | `lookupUserByLogin()`, `lookupUserByLoginAuthed()`, `ensureGlobalBTTVEmotes()`, `ensureChannelFFZEmotes()` |
 | `common/TwitchImages.brs` | `resizeTwitchImageUrl()` |
 | `common/Format.brs` | `formatCountAbbrev()`, `secondsSinceISO8601()`, `formatElapsedHMS()` |
@@ -215,7 +215,11 @@ user-token-vs-app-token fallback:
 - `GETJSONPublic(link)` — one-shot GET + parse with **no** credentials
   attached. Use it for third-party APIs (BetterTTV, FrankerFaceZ) — they have
   no business seeing the user's Twitch token.
-- `redactToken(token)` — a short hint for a credential, for log lines.
+- `redactToken(token)` — a short hint for a credential, for log lines. It
+  lives in `common/Http.brs` so that every component can use it, including
+  the ones that do not include `common/TwitchAuth.brs`.
+- `redactUrl(url)` — a URL without its query string. The signed parameters in
+  a playback URL are credentials of their own.
 - `validateToken`, `refreshToken`, `refreshUserToken`, `refreshAppToken` —
   token lifecycle; the refresh path round-trips through the companion backend.
   `refreshToken(force)` skips the "still valid" short circuit: a caller that
@@ -243,9 +247,8 @@ Notable keys:
 | `appClientId` | Twitch client id from `/apptoken` | `MainScene.brs:181` |
 | `appBearerToken` | App-level OAuth bearer token | `MainScene.brs:182` |
 | `userToken` | User OAuth token; `""` = anonymous, `invalid` = logged out / unset | `MainScene.brs:108`/`:110`, `common/TwitchAuth.brs:168`, `common/TwitchAuth.brs:192` |
-| `videoQuality` | Index into the quality ladder (0 = 1080p60 … 6 = 160p) | `MainScene.brs:84`/`:86`, `Options.brs:46` |
-| `videoFramerate` | 30 or 60 — persisted but never consumed by playback | `MainScene.brs:92`/`:94`, `Options.brs:48`/`:50` |
-| `chatOption` | Chat on/off — persisted but not wired to chat visibility (see gaps) | `MainScene.brs:100`/`:102`, `Options.brs:69` |
+| `videoQuality` | Index into the quality ladder (0 = 1080p60 … 6 = 160p). The index already encodes the framerate, so there is no separate one. | `MainScene.brs`, `Options.brs` |
+| `chatOption` | Chat on/off — applied when the stream layout is set. The OK button during playback is a per-stream override on top of it. | `MainScene.brs`, `Options.brs` |
 | `globalBadges` | Chat badge cache (Helix shape) | `ChatIrc.brs` |
 | `globalTTVEmotes` | BetterTTV global emotes, keyed by code | `common/TwitchApi.brs` |
 | `channelBadges` | Per-channel badges (Helix shape) | `ChatIrc.brs` |
@@ -265,7 +268,7 @@ Stored in `roRegistrySection`. Two sections matter:
   on first run after a known-bad state, and `RecentStreamers` (JSON blob of
   recently watched channels, capped at `m.maxRecents` = 20). `saveLogin` /
   `clearLogin` in `common/TwitchAuth.brs` are the entry points.
-- **`VideoSettings`** — `VideoQuality`, `VideoFramerate`, `ChatOption`,
+- **`VideoSettings`** — `VideoQuality`, `ChatOption`,
   `VideoBookmarks` (playback resume positions).
 
 `MainScene.init` reads both at boot and seeds `m.global` from them.
@@ -344,6 +347,17 @@ IRCv3 tags.
   BetterTTV list (`cached/emotes/global`) and the FrankerFaceZ list still
   work.
 
+### VOD playback
+
+The VOD scrubber has **no preview thumbnails**. Twitch does not expose the
+storyboard spec through the documented API — Helix has no field for it, and
+the GQL schema no longer has `storyboards` on `Video` — and
+`usher.ttvnw.net/vod/storyboards/<id>-info.json` answers `403` with an empty
+body for every credential shape, including the `nauth`/`nauthsig` pair that
+comes with the playback URL. The code that derived the storyboard URL from
+the playback URL's path and parsed it was removed; `GetPreviousLiveStreamVideo`
+now only reports the video id, which is what the bookmark feature needs.
+
 `components/common/WebSocket.brs` is an RFC-6455 BrightScript WebSocket
 client. It is `ws://`-only: `roStreamSocket` has no native TLS, so a
 `wss://` handshake would need a hand-rolled TLS stack that could not complete
@@ -365,34 +379,15 @@ must have. Concrete values for your own runs belong in a `*.local.md`
 companion, which is gitignored; no published file refers to one. See [the
 conventions](.known_issues/README.md).
 
-- **`GetLiveStream.brs:55`** — the request assoc array has a malformed literal
-  (a stray `"` before `"resolution": "720p60"`), so the JSON body posted to
-  `/getlivestream` is invalid.
 - **`common/TwitchAuth.brs`** — `refreshAppToken()` calls
   `waitForAppToken()`, which busy-waits on `m.global.appBearerToken`.
   `HomeScene.init` starts `GetStreams` before `MainScene.init` defines it, so
   the first browse request can abort on a type error.
-- **`common/TwitchAuth.brs`** — writes the registry key
-  `LoggedInUserId`. Nothing reads that key back — `GetUser.brs:5-6` reads
-  `LoggedInUserName` instead — so the write is dead. Verify whether the write
-  is still wanted.
-- **`MainScene.brs:91`** — copy/paste bug: tests `videoQuality <> invalid`
-  where it means `videoFramerate`, so the saved framerate is ignored and
-  `videoFramerate` always resets to 60.
-- **`CustomVideo.brs:211-261`** — `VideoBookmarks` is assembled as a
-  hand-built string. When a bookmark is new, `tempBookmarks` is updated at
-  `CustomVideo.brs:218` *before* the loop at `:225-231` runs, so the new
-  entry is emitted twice — once by the loop and again by the append at `:248`
-  — producing a duplicate JSON key. The closing `}` is appended correctly in
-  both branches (`:248` and `:250`); it is the duplicate, not a stray brace,
-  that is suspect.
-- **`MainScene.brs:373-374`** — the `chatOption` → chat-visibility wiring is
-  commented out, so the Options toggle has no effect.
-- **`GetPreviousLiveStreamVideo.brs:13`** — `extractThumbnailUrl` derives the
-  storyboard URL from the stream URL's path, but the master URL now comes from
-  the backend as `https://usher.ttvnw.net/vod/v2/<id>.m3u8`, so the derived
-  storyboard path is wrong and `ParseJSON` fails with "Data is empty". VOD
-  scrubbing thumbnails are lost. Found on device.
+- **`CustomVideo.brs`** — `VideoBookmarks` is assembled as a hand-built
+  string, and the loop that writes it out is preceded by the insert of the
+  new entry. Keep the insert before the loop and let the loop be the only
+  thing that writes entries out — appending the new one again afterwards puts
+  the same key in the JSON twice.
 
 ## BrightScript conventions used here
 
@@ -414,7 +409,9 @@ conventions](.known_issues/README.md).
   duplicated in `Options.brs:10`, `GetLiveStream.brs:48`, and
   `GetPreviousLiveStreamVideo.brs:78`, and mirrored again as UI labels in
   `Options.xml:45-72`. The latter two carry a `TODO` to read it from Options
-  instead of re-hardcoding it.
+  instead of re-hardcoding it. The index into the ladder encodes the
+  framerate — `1080p60` and `1080p` are the same resolution at different
+  rates — so there is no separate framerate setting.
 
 ## Branch / commit style
 

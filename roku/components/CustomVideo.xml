@@ -281,11 +281,6 @@
                 color="0xFFFFFFFF"
                 fontSize="12"
                 fontUri="pkg:/fonts/Inter-Regular.ttf" />
-
-            <Group id="thumbnails" clippingRect="[0,0,220,124]" translation="[0,-150]" >
-                <Poster
-                    id="thumbnailImage" />
-            </Group>
         </Group>
         <LoadingIndicator 
             id="loadingIndicator"

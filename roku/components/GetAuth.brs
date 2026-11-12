@@ -18,7 +18,7 @@ function getStreamLink() as Object
     url = newUrlTransfer()
     url.SetUrl(enter_code_url)
     response_string = url.GetToString()
-    ? "getAuth enter code: "; response_string
+    ? "getAuth enter code received (" + Len(response_string).ToStr() + " chars)"
     m.top.code = response_string
 
     url = newUrlTransfer()
@@ -27,19 +27,19 @@ function getStreamLink() as Object
     url.SetMessagePort(port)
 
     while true
-        print url.AsyncPostFromString("{""code"": """ + response_string + """}")
+        url.AsyncPostFromString("{""code"": """ + response_string + """}")
         msg = port.WaitMessage(0)
-        res = ParseJson(msg.GetString())
+        response_text = msg.GetString()
+        res = ParseJson(response_text)
         if res <> invalid and res.DoesExist("access_token")
             exit while
         end if
-        ?"GetAuth - getStreamLink - msg: " + msg.GetString()
+        ?"GetAuth - getStreamLink - msg: " + response_text
         sleep(5000)
     end while
 
-    ?"GetAuth - getStreamLink - msg: " + msg.GetString()
-
-    oauth_token = ParseJson(msg.GetString())
+    oauth_token = ParseJson(response_text)
+    ?"GetAuth - getStreamLink - msg: " + redactToken(oauth_token.access_token)
 
     url = newUrlTransfer()
     url.SetUrl("https://id.twitch.tv/oauth2/validate")
@@ -49,7 +49,7 @@ function getStreamLink() as Object
     response = ParseJson(response_string)
 
     ? "GetAuth - getStreamLink - response: " + response_string
-    saveLogin(oauth_token.access_token, oauth_token.refresh_token, response.login, response.user_id)
+    saveLogin(oauth_token.access_token, oauth_token.refresh_token, response.login)
 
     return ""
 end function

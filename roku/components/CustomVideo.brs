@@ -17,8 +17,6 @@ function init()
     m.currentProgressBarState = 0
     m.currentPositionSeconds = 0
     m.currentPositionUpdated = false
-    m.thumbnails = m.top.findNode("thumbnails")
-    m.thumbnailImage = m.top.findNode("thumbnailImage")
     m.arrows = m.top.findNode("arrows")
 
     m.videoTitle = m.top.findNode("videoTitle")
@@ -47,11 +45,6 @@ function init()
     m.top.observeField("state", "onvideoStateChange")
     m.top.observeField("channelAvatar", "onChannelAvatarChange")
     m.top.observeField("chatIsVisible", "onChatVisibilityChange")
-
-    m.uiResolutionWidth = createObject("roDeviceInfo").GetUIResolution().width
-    if m.uiResolutionWidth = 1920
-        m.thumbnails.clippingRect = [0, 0, 146.66, 82.66]
-    end if
 
     deviceInfo = CreateObject("roDeviceInfo")
     uiResolutionWidth = deviceInfo.GetUIResolution().width
@@ -110,17 +103,6 @@ sub onButtonHold()
             if m.currentPositionSeconds > m.top.duration
                 m.currentPositionSeconds = m.top.duration
             end if
-            if m.top.thumbnailInfo.width <> invalid
-                if m.progressBarProgress.width + m.top.thumbnailInfo.width / 2 <= m.progressBarBase.width
-                    if m.progressBarProgress.width - m.top.thumbnailInfo.width / 2 >= 0
-                        m.thumbnails.translation = [m.progressBarProgress.width - m.top.thumbnailInfo.width / 2, -150]
-                    else
-                        m.thumbnails.translation = [0, -150]
-                    end if
-                else
-                    m.thumbnails.translation = [m.progressBarBase.width - m.top.thumbnailInfo.width, -150]
-                end if
-            end if
         else if m.buttonHeld = "left"
             m.currentPositionSeconds -= m.scrollInterval
             m.progressBarProgress.width = m.progressBarBase.width * (m.currentPositionSeconds / m.top.duration)
@@ -128,24 +110,10 @@ sub onButtonHold()
             if m.currentPositionSeconds < 0
                 m.currentPositionSeconds = 0
             end if
-            if m.top.thumbnailInfo.width <> invalid
-                if m.progressBarProgress.width - m.top.thumbnailInfo.width / 2 >= 0
-                    if m.progressBarProgress.width + m.top.thumbnailInfo.width / 2 <= m.progressBarBase.width
-                        m.thumbnails.translation = [m.progressBarProgress.width - m.top.thumbnailInfo.width / 2, -150]
-                    else
-                        m.thumbnails.translation = [m.progressBarBase.width - m.top.thumbnailInfo.width, -150]
-                    end if
-                else
-                    m.thumbnails.translation = [0, -150]
-                end if
-            end if
         end if
 
         m.timeProgress.text = convertToReadableTimeFormat(m.currentPositionSeconds)
         m.timeDuration.text = convertToReadableTimeFormat(m.top.duration)
-        if m.top.thumbnailInfo.width <> invalid
-            showThumbnail()
-        end if         
         m.scrollInterval += 10
     end if
 end sub
@@ -187,37 +155,13 @@ sub onVideoPositionChange()
     end if
 end sub
 
-sub showThumbnail()
-    if m.top.thumbnailInfo <> invalid and m.top.thumbnailInfo.width <> invalid
-        thumbnailsPerPart = Int(m.top.thumbnailInfo.count / m.top.thumbnailInfo.thumbnail_parts.Count())
-        thumbnailPosOverall = Int(m.currentPositionSeconds / m.top.thumbnailInfo.interval)
-        thumbnailPosCurrent = thumbnailPosOverall MOD thumbnailsPerPart
-        thumbnailRow = Int(thumbnailPosCurrent / m.top.thumbnailInfo.cols)
-        thumbnailCol = Int(thumbnailPosCurrent MOD m.top.thumbnailInfo.cols)
-        if m.uiResolutionWidth = 1280
-            m.thumbnailImage.translation = [-thumbnailCol * m.top.thumbnailInfo.width, -thumbnailRow * m.top.thumbnailInfo.height]
-        else
-            m.thumbnailImage.translation = [(-thumbnailCol * m.top.thumbnailInfo.width) * 0.66, (-thumbnailRow * m.top.thumbnailInfo.height) * 0.66]
-        end if
-        '? thumbnailPosOverall " " thumbnailPosCurrent
-        '? m.currentPositionSeconds " " m.top.thumbnailInfo.interval " " m.top.thumbnailInfo.cols " " m.top.thumbnailInfo.width " " m.top.thumbnailInfo.height
-        if m.top.thumbnailInfo.info_url <> invalid and m.top.thumbnailInfo.thumbnail_parts[Int(thumbnailPosOverall / thumbnailsPerPart)] <> invalid 
-            m.thumbnailImage.uri = m.top.thumbnailInfo.info_url + m.top.thumbnailInfo.thumbnail_parts[Int(thumbnailPosOverall / thumbnailsPerPart)]
-        end if
-        m.thumbnailImage.visible = true
-    end if
-end sub
-
 function saveVideoBookmark() as Void
     if m.top.duration >= 900
         videoBookmarks = "{"
         
         tempBookmarks = m.top.videoBookmarks
         if m.top.thumbnailInfo <> invalid and m.top.thumbnailInfo.video_id <> invalid
-            bookmarkAlreadyExists = tempBookmarks.DoesExist(m.top.thumbnailInfo.video_id)
             tempBookmarks[m.top.thumbnailInfo.video_id] = Int(m.top.position).ToStr()
-        else
-            bookmarkAlreadyExists = false
         end if
 
         if tempBookmarks.Count() < 100
@@ -244,11 +188,10 @@ function saveVideoBookmark() as Void
             end for
         end if
         
-        if m.top.thumbnailInfo <> invalid and bookmarkAlreadyExists = false
-            videoBookmarks += "," + chr(34) + m.top.thumbnailInfo.video_id.ToStr() + chr(34) + " : " + chr(34) + Int(m.top.position).ToStr() + chr(34) + "}"
-        else
-            videoBookmarks += "}"
-        end if
+        ' The new entry went into tempBookmarks before the loop, so the loop
+        ' has already written it out. Appending it again here would put the
+        ' same key in the JSON twice.
+        videoBookmarks += "}"
 
         m.top.videoBookmarks = tempBookmarks
 
@@ -301,13 +244,11 @@ function onKeyEvent(key, press) as Boolean
                 ' m.controlButton.blendColor = "0xFFFFFFFF"
                 ' m.backButton.blendColor = "0xBD00FFFF"
                 ' 'm.controlSelectRect.visible = false
-                ' m.thumbnailImage.visible = true
             else if m.currentProgressBarState = 2
                 m.currentProgressBarState = 0
                 m.progressBarBase.height = 2
                 m.progressBarProgress.height = 2
                 m.progressBar.visible = false
-                m.thumbnailImage.visible = false
             else if m.currentProgressBarState = 3
                 ' m.currentProgressBarState = 4
                 ' m.timeTravelButton.blendColor = "0xFFFFFFFF"
@@ -366,23 +307,8 @@ function onKeyEvent(key, press) as Boolean
                 end if
                 m.progressBarProgress.width = m.progressBarBase.width * (m.currentPositionSeconds / m.top.duration)
                 m.progressDot.translation = [m.progressBarBase.width * (m.currentPositionSeconds / m.top.duration) + 33, 77]
-                if m.top.thumbnailInfo <> invalid and m.top.thumbnailInfo.width <> invalid
-                    if m.progressBarProgress.width + m.top.thumbnailInfo.width / 2 <= m.progressBarBase.width
-                        if m.progressBarProgress.width - m.top.thumbnailInfo.width / 2 >= 0
-                            m.thumbnails.translation = [m.progressBarProgress.width - m.top.thumbnailInfo.width / 2, -150]
-                        else
-                            m.thumbnails.translation = [0, -150]
-                        end if
-                    else
-                        m.thumbnails.translation = [m.progressBarBase.width - m.top.thumbnailInfo.width, -150]
-                    end if
-
-                    m.timeProgress.text = convertToReadableTimeFormat(m.currentPositionSeconds)
-                    m.timeDuration.text = convertToReadableTimeFormat(m.top.duration)
-                    if m.top.thumbnailInfo.width <> invalid
-                        showThumbnail()
-                    end if
-                end if
+                m.timeProgress.text = convertToReadableTimeFormat(m.currentPositionSeconds)
+                m.timeDuration.text = convertToReadableTimeFormat(m.top.duration)
                 m.buttonHeld = "right"
                 m.buttonHoldTimer.control = "start"
             end if
@@ -438,7 +364,6 @@ function onKeyEvent(key, press) as Boolean
                 m.messagesButton.blendColor = "0xFFFFFFFF"
                 m.timeTravelButton.blendColor = "0xFFFFFFFF"
                 m.currentProgressBarState = 0
-                m.thumbnailImage.visible = false
                 m.progressBar.visible = false
                 return true
             end if
@@ -454,7 +379,6 @@ function onKeyEvent(key, press) as Boolean
                 m.progressBar.visible = false
                 'm.controlSelectRect.visible = false
                 m.currentPositionUpdated = false
-                m.thumbnailImage.uri = ""
                 saveVideoBookmark()
                 m.top.thumbnailInfo = invalid
             end if
@@ -500,7 +424,6 @@ function onKeyEvent(key, press) as Boolean
                 m.progressBar.visible = false
                 'm.controlSelectRect.visible = false
                 m.currentPositionUpdated = false
-                m.thumbnailImage.uri = ""
                 saveVideoBookmark()
                 m.top.thumbnailInfo = invalid
                 'm.backButton.blendColor = "0xFFFFFFFF"
@@ -547,23 +470,8 @@ function onKeyEvent(key, press) as Boolean
             end if
             m.progressBarProgress.width = m.progressBarBase.width * (m.currentPositionSeconds / m.top.duration)
             m.progressDot.translation = [m.progressBarBase.width * (m.currentPositionSeconds / m.top.duration) + 33, 77]
-            if m.top.thumbnailInfo <> invalid and m.top.thumbnailInfo.width <> invalid
-                if m.progressBarProgress.width + m.top.thumbnailInfo.width / 2 <= m.progressBarBase.width
-                    if m.progressBarProgress.width - m.top.thumbnailInfo.width / 2 >= 0
-                        m.thumbnails.translation = [m.progressBarProgress.width - m.top.thumbnailInfo.width / 2, -150]
-                    else
-                        m.thumbnails.translation = [0, -150]
-                    end if
-                else
-                    m.thumbnails.translation = [m.progressBarBase.width - m.top.thumbnailInfo.width, -150]
-                end if
-
-                m.timeProgress.text = convertToReadableTimeFormat(m.currentPositionSeconds)
-                m.timeDuration.text = convertToReadableTimeFormat(m.top.duration)
-                if m.top.thumbnailInfo.width <> invalid
-                    showThumbnail()
-                end if
-            end if
+            m.timeProgress.text = convertToReadableTimeFormat(m.currentPositionSeconds)
+            m.timeDuration.text = convertToReadableTimeFormat(m.top.duration)
             m.buttonHeld = "right"
             m.buttonHoldTimer.control = "start"
         else if key = "rewind"
@@ -583,26 +491,10 @@ function onKeyEvent(key, press) as Boolean
             if m.currentPositionSeconds < 0
                 m.currentPositionSeconds = 0
             end if
-            if m.top.thumbnailInfo <> invalid and m.top.thumbnailInfo.width <> invalid
-                if m.progressBarProgress.width - m.top.thumbnailInfo.width / 2 >= 0
-                    if m.progressBarProgress.width + m.top.thumbnailInfo.width / 2 <= m.progressBarBase.width
-                        m.thumbnails.translation = [m.progressBarProgress.width - m.top.thumbnailInfo.width / 2, -150]
-                    else
-                        m.thumbnails.translation = [m.progressBarBase.width - m.top.thumbnailInfo.width, -150]
-                    end if
-                else
-                    m.thumbnails.translation = [0, -150]
-                end if
-
-                m.progressBarProgress.width = m.progressBarBase.width * (m.currentPositionSeconds / m.top.duration)
-                m.progressDot.translation = [m.progressBarBase.width * (m.currentPositionSeconds / m.top.duration) + 33, 77]
-                'm.thumbnails.translation = [m.progressBarProgress.width - m.top.thumbnailInfo.width / 2, -150]
-                m.timeProgress.text = convertToReadableTimeFormat(m.currentPositionSeconds)
-                m.timeDuration.text = convertToReadableTimeFormat(m.top.duration)
-                if m.top.thumbnailInfo.width <> invalid
-                    showThumbnail()
-                end if
-            end if
+            m.progressBarProgress.width = m.progressBarBase.width * (m.currentPositionSeconds / m.top.duration)
+            m.progressDot.translation = [m.progressBarBase.width * (m.currentPositionSeconds / m.top.duration) + 33, 77]
+            m.timeProgress.text = convertToReadableTimeFormat(m.currentPositionSeconds)
+            m.timeDuration.text = convertToReadableTimeFormat(m.top.duration)
             m.buttonHeld = "left"
             m.buttonHoldTimer.control = "start"
         else if key = "play"

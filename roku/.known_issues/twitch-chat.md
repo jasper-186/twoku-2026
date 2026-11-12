@@ -92,10 +92,8 @@ that body. The body was never sent.
 The subscription's `condition.user_id` came from `Chat.loggedInUserId`, which
 **nothing ever wrote** — `MainScene` set `m.chat.loggedInUserName` only.
 
-This one is now fixed: `MainScene.brs:307` sets
-`m.chat.loggedInUserId = m.getUser.searchResults.id`, and
-`common/TwitchAuth.brs:165` writes the `LoggedInUserId` registry key during
-the device-code login.
+This one is now fixed: `MainScene` sets
+`m.chat.loggedInUserId = m.getUser.searchResults.id`.
 
 ### 5. Messages never reached the renderer
 
