@@ -88,6 +88,40 @@ def summarize_stream(stream_data):
     }
 
 
+def rewrite_master_url(url):
+    """Twitch's master playlist for a multigroup broadcast leads with an
+    HEVC portrait "source" rendition, and the Roku player does not handle
+    that: it never starts the video. Dropping the portrait group and pinning
+    the codec list leaves the plain all-avc1 landscape master that the
+    device does play.
+
+    streamlink hardcodes multigroup_video=true (plugins/twitch.py), so the
+    query string is rewritten here rather than through a plugin option.
+    Every other parameter is kept exactly as it was.
+    """
+    if not url:
+        return url
+    parts = urlsplit(url)
+    kept = []
+    for pair in parts.query.split('&'):
+        if not pair:
+            continue
+        if pair.split('=', 1)[0] in ('multigroup_video', 'supported_codecs'):
+            continue
+        kept.append(pair)
+    kept.append('multigroup_video=false')
+    kept.append('supported_codecs=h264')
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, '&'.join(kept), parts.fragment))
+
+
+def rewrite_master_urls(stream_data):
+    """Point every quality's master playlist at the playable variant list."""
+    for quality in stream_data.get('streams', {}).values():
+        if isinstance(quality, dict) and quality.get('master'):
+            quality['master'] = rewrite_master_url(quality['master'])
+    return stream_data
+
+
 def get_client_ip(request):
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded_for:
@@ -313,6 +347,7 @@ def getlivestream(request):
                 return JsonResponse({'error': error_message}, status=500)
             
             stream_data = json.loads(result.stdout.decode('utf-8'))
+            rewrite_master_urls(stream_data)
             logger.info(f"Stream URL: {summarize_stream(stream_data)}")
             return JsonResponse({'stream_data': stream_data})
         
@@ -364,6 +399,7 @@ def getvod(request):
                 return JsonResponse({'error': error_message}, status=500)
             
             stream_data = json.loads(result.stdout.decode('utf-8'))
+            rewrite_master_urls(stream_data)
             logger.info(f"Stream URL: {summarize_stream(stream_data)}")
             return JsonResponse({'stream_data': stream_data})
         
