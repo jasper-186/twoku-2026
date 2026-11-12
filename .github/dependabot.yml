@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # Keeps the workflow's actions on runtimes GitHub still supports. Node 20
+  # was removed from the runners in September 2026, so a stale action major
+  # is a broken build rather than a warning.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "ci"
