@@ -274,6 +274,10 @@ def prune_sessions():
 def proxy_if_fragmented(stream_data, quality, base_url):
     """Point a fragmented-MP4 rendition at the remuxing proxy.
 
+    The device is handed the proxied media playlist rather than a master
+    playlist: it takes one URL and plays it, where a master playlist would
+    have to be resolved first.
+
     Returns the session token when the rendition was replaced.
     """
     streams = stream_data.get('streams', {})
@@ -284,10 +288,9 @@ def proxy_if_fragmented(stream_data, quality, base_url):
     if not media_url or not is_fragmented_mp4(media_url):
         return None
 
-    variant_line = find_variant_line(entry.get('master'), media_url)
     token = uuid.uuid4().hex
     session = VODProxySession.objects.create(token=token, source_url=media_url)
     playlist_url = '%s/vodproxy/%s/index.m3u8' % (base_url.rstrip('/'), session.token)
-    entry['master'] = build_master(variant_line, playlist_url)
+    entry['master'] = playlist_url
     logger.info(f"Remuxing fragmented-MP4 rendition {quality} for {session.token}")
     return session.token

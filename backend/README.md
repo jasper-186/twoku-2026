@@ -18,7 +18,7 @@ it serves is in `roku/`.
 | `/apptoken` | GET | Mints an app-level token and returns it with the client id. |
 | `/getlivestream` | POST | Resolves a live stream's playback URL via `streamlink`. |
 | `/getvod` | POST | Resolves a VOD's playback URL via `streamlink`. |
-| `/vodproxy/<token>/index.m3u8` | GET | The MPEG-TS playlist for a broadcast that Twitch stores as fragmented MP4. |
+| `/vodproxy/<token>/index.m3u8` | GET | The MPEG-TS playlist for a broadcast that Twitch stores as fragmented MP4. This is the URL the device is given in place of the playback URL. |
 | `/vodproxy/<token>/<segment>.ts` | GET | One segment of that playlist, remuxed to MPEG-TS. |
 
 The device-code flow:
@@ -126,9 +126,9 @@ MP4. There is no parameter that asks for the other container.
 
 So `/getvod` checks the rendition it resolved: if it is fragmented MP4, the
 segments are remuxed to MPEG-TS as they are requested, and the device is
-handed a playlist served from `/vodproxy/`. A ten second segment takes
-about a tenth of a second to remux, so playback starts almost immediately
-and nothing is held on disk beyond a small cache.
+handed the proxied media playlist. A ten second segment takes about a
+tenth of a second to remux, so playback starts almost immediately and
+nothing is held on disk beyond a small cache.
 
 Only fragmented-MP4 broadcasts go through the proxy. Live streams and
 MPEG-TS broadcasts are served straight from Twitch's CDN.
