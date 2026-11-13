@@ -79,7 +79,7 @@ function getUserIdFromLogin(login as String, depth = 1) as Integer
     end if
     if user.status <> invalid and user.status = 401
         ? "401 - GetUserId"
-        refreshToken(true)
+        refreshToken()
         if depth < 3
             return getUserIdFromLogin(login, depth + 1)
         end if

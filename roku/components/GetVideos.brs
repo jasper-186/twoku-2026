@@ -105,7 +105,7 @@ function getSearchResults(depth = 1) as Object
     if search.status <> invalid and search.status = 401
         ? "401 - GetVideos"
         ? "401 - Response string: " + response_string
-        refreshToken(true)
+        refreshToken()
         if depth < 3
             return getSearchResults(depth + 1)
         else

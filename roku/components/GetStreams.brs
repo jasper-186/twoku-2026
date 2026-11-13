@@ -57,7 +57,7 @@ function getStreamSearchResults(depth = 1) as Object
     if search.status <> invalid and search.status = 401
         ? "401 - GetStreams"
         ? "401 - Response: " + response_string
-        refreshToken(true)
+        refreshToken()
         if depth < 3
             return getStreamSearchResults(depth + 1)
         else

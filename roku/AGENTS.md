@@ -222,10 +222,11 @@ user-token-vs-app-token fallback:
   a playback URL are credentials of their own.
 - `validateToken`, `refreshToken`, `refreshUserToken`, `refreshAppToken` —
   token lifecycle; the refresh path round-trips through the companion backend.
-  `refreshToken(force)` skips the "still valid" short circuit: a caller that
-  has just seen a 401 needs a refresh even when the stored token looks fine,
-  because the token that failed and the token in the registry are not
-  necessarily the same one.
+  A refresh **rotates** the refresh token, so only one may run at a time:
+  `refreshUserToken` takes a global flag and the other tasks wait for it.
+  When the stored token turns out to be valid, it is copied into
+  `m.global.userToken` — the token in use can be an older one that a refresh
+  elsewhere has already replaced.
 
 POSTs are not wrapped in a helper. `GetLiveStream.brs`,
 `GetPreviousLiveStreamVideo.brs` and `GetAuth.brs` each build their own
@@ -246,7 +247,7 @@ Notable keys:
 |---|---|---|
 | `appClientId` | Twitch client id from `/apptoken` | `MainScene.brs:181` |
 | `appBearerToken` | App-level OAuth bearer token | `MainScene.brs:182` |
-| `userToken` | User OAuth token; `""` = anonymous, `invalid` = logged out / unset | `MainScene.brs:108`/`:110`, `common/TwitchAuth.brs:168`, `common/TwitchAuth.brs:192` |
+| `userToken` | User OAuth token; `""` = anonymous, `invalid` = logged out / unset | `MainScene.brs`, `common/TwitchAuth.brs` |
 | `videoQuality` | Index into the quality ladder (0 = 1080p60 … 6 = 160p). The index already encodes the framerate, so there is no separate one. | `MainScene.brs`, `Options.brs` |
 | `chatOption` | Chat on/off — applied when the stream layout is set. The OK button during playback is a per-stream override on top of it. | `MainScene.brs`, `Options.brs` |
 | `globalBadges` | Chat badge cache (Helix shape) | `ChatIrc.brs` |

@@ -96,9 +96,9 @@ function validateToken(token as string) as Object
 end function
 
 
-function refreshToken(force = false) as void
+function refreshToken() as void
     ? "Refreshing user token..."
-    refreshUserToken(force)
+    refreshUserToken()
     ? "Refreshing app token..."
     refreshAppToken()
 end function
@@ -133,29 +133,42 @@ function refreshAppToken() as void
     m.global.setField("appBearerToken", response.access_token)
 end function
 
-function refreshUserToken(force = false) as void
+function refreshUserToken() as void
+    ' Only one refresh at a time. Several tasks can find the token expired
+    ' at once, and every refresh rotates the refresh token - so a second
+    ' one spends a token the first one has already replaced.
+    waited = 0
+    while m.global.tokenRefreshInProgress = true and waited < 15000
+        sleep(200)
+        waited = waited + 200
+    end while
+    m.global.setField("tokenRefreshInProgress", true)
+
     sec = createObject("roRegistrySection", "LoggedInUserData")
     if NOT sec.Exists("UserToken") or sec.Read("UserToken") = ""
+        m.global.setField("tokenRefreshInProgress", false)
          ? "No user token found, skipping refresh"
          return
     end if
-    ' A caller that got a 401 has already proved the token it used is no
-    ' good. The stored token may have been replaced by a refresh that landed
-    ' in the meantime, so the validity check alone would skip the refresh
-    ' and retry with the same token.
-    if NOT force
-        ? "Validating user token..."
-        if validateToken(sec.Read("UserToken")) <> invalid
-            ? "User token is still valid, skipping refresh"
-            return
-        end if
+
+    storedToken = sec.Read("UserToken")
+    ? "Validating user token..."
+    if validateToken(storedToken) <> invalid
+        m.global.setField("tokenRefreshInProgress", false)
+        ? "User token is still valid, skipping refresh"
+        ' The token in use can be an older one that a refresh elsewhere has
+        ' already replaced, so take the stored one.
+        m.global.setField("userToken", storedToken)
+        return
     end if
+
     url = newUrlTransfer()
     url.SetUrl(getBackendBaseUrl() + "/refresh")
     port = CreateObject("roMessagePort")
     url.SetMessagePort(port)
     token = getUserRefreshToken()
     if token = ""
+        m.global.setField("tokenRefreshInProgress", false)
         ? "No refresh token found, cannot refresh"
         clearLogin()
         return
@@ -163,16 +176,19 @@ function refreshUserToken(force = false) as void
     url.AsyncPostFromString("code=" + token)
     msg = port.WaitMessage(0)
     if msg = invalid
+        m.global.setField("tokenRefreshInProgress", false)
         ? "No response from the backend - keeping the stored login"
         return
     end if
     response_text = msg.GetString()
     oauth_token = ParseJson(response_text)
     if oauth_token = invalid
+        m.global.setField("tokenRefreshInProgress", false)
         ? "Could not read the refresh response - keeping the stored login"
         return
     end if
     if oauth_token.access_token = invalid or oauth_token.refresh_token = invalid
+        m.global.setField("tokenRefreshInProgress", false)
         ? "Invalid tokens received during refresh"
         clearLogin()
         return
@@ -185,6 +201,9 @@ function refreshUserToken(force = false) as void
     response = ParseJson(res)
 
     saveLogin(oauth_token.access_token, oauth_token.refresh_token, response.login)
+    ' The flag is held until the new token is stored, so that a task waiting
+    ' for it finds the new token rather than the one that just expired.
+    m.global.setField("tokenRefreshInProgress", false)
 end function
 
 function getUserRefreshToken()
