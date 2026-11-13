@@ -358,6 +358,13 @@ comes with the playback URL. The code that derived the storyboard URL from
 the playback URL's path and parsed it was removed; `GetPreviousLiveStreamVideo`
 now only reports the video id, which is what the bookmark feature needs.
 
+The Roku's HLS player will also **not start a fragmented-MP4 stream**, and
+Twitch stores some broadcasts in that format and others as MPEG-TS — the
+choice is per broadcast, and every rendition of a fragmented-MP4 broadcast is
+fragmented MP4. There is no parameter that asks for the other container, so
+the backend remuxes those segments to MPEG-TS on demand and serves them
+from `/vodproxy/`. See the backend's README.
+
 `components/common/WebSocket.brs` is an RFC-6455 BrightScript WebSocket
 client. It is `ws://`-only: `roStreamSocket` has no native TLS, so a
 `wss://` handshake would need a hand-rolled TLS stack that could not complete
@@ -411,7 +418,11 @@ conventions](.known_issues/README.md).
   `Options.xml:45-72`. The latter two carry a `TODO` to read it from Options
   instead of re-hardcoding it. The index into the ladder encodes the
   framerate — `1080p60` and `1080p` are the same resolution at different
-  rates — so there is no separate framerate setting.
+  rates — so there is no separate framerate setting. Twitch names its
+  renditions by their real rate (`480p30`, `360p30`), so the backend adds
+  the app's name as an alias for the closest match — otherwise the lookup
+  in `GetLiveStream.brs` and `GetPreviousLiveStreamVideo.brs` misses and
+  the stream never starts.
 
 ## Branch / commit style
 

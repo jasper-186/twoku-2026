@@ -65,6 +65,14 @@ function init()
     m.buttonHeld = invalid
     m.scrollInterval = 10
     m.top.streamLayoutMode = 0
+
+    ' A stream the player cannot start sits in "buffering" forever and
+    ' never reports an error, so the wait is timed and reported.
+    m.bufferingTimer = createObject("roSGNode", "Timer")
+    m.bufferingTimer.observeField("fire", "onBufferingTimeout")
+    m.bufferingTimer.repeat = false
+    m.bufferingTimer.duration = 20
+    m.bufferingTimer.control = "stop"
 end function
 
 sub onChatVisibilityChange()
@@ -90,8 +98,10 @@ end sub
 sub onVideoStateChange()
     if m.top.state = "buffering"
         m.loadingIndicator.control = "start"
+        m.bufferingTimer.control = "start"
     else
         m.loadingIndicator.control = "stop"
+        m.bufferingTimer.control = "stop"
     end if
     if m.top.state = "error"
         ? "CustomVideo >> playback error: " + m.top.errorCode.ToStr() + " - " + playbackErrorText()
@@ -99,6 +109,14 @@ sub onVideoStateChange()
         m.errorMessage.visible = true
     else
         m.errorMessage.visible = false
+    end if
+end sub
+
+sub onBufferingTimeout()
+    if m.top.state = "buffering"
+        ? "CustomVideo >> still buffering after " + m.bufferingTimer.duration.ToStr() + " seconds"
+        m.errorMessage.text = "This video is taking too long to start"
+        m.errorMessage.visible = true
     end if
 end sub
 
