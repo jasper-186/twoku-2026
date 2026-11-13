@@ -15,6 +15,9 @@ from datetime import timedelta
 
 from django.utils import timezone
 
+from . import proxy as vodproxy
+from .models import Device
+
 logger = logging.getLogger(__name__)
 
 # Keys whose values are credentials and must never reach the log unless
@@ -120,6 +123,38 @@ def rewrite_master_urls(stream_data):
         if isinstance(quality, dict) and quality.get('master'):
             quality['master'] = rewrite_master_url(quality['master'])
     return stream_data
+
+
+@csrf_exempt
+def vodproxy_playlist(request, token):
+    """The MPEG-TS playlist for a remuxed broadcast."""
+    session = vodproxy.get_session(token)
+    if session is None:
+        return HttpResponse("unknown or expired proxy session", status=404)
+    try:
+        remuxer = vodproxy.remuxer_for(session.token, session.source_url)
+        playlist = remuxer.ts_playlist()
+    except Exception as e:
+        logger.error(f"Could not build the proxy playlist for {token}: {str(e)}")
+        return HttpResponse("could not build the playlist", status=500)
+    return HttpResponse(playlist, content_type="application/vnd.apple.mpegurl")
+
+
+@csrf_exempt
+def vodproxy_segment(request, token, name):
+    """One segment of a remuxed broadcast, as MPEG-TS."""
+    session = vodproxy.get_session(token)
+    if session is None:
+        return HttpResponse("unknown or expired proxy session", status=404)
+    if not name or '/' in name or '..' in name or not name.endswith('.ts'):
+        return HttpResponse("bad segment name", status=400)
+    try:
+        remuxer = vodproxy.remuxer_for(session.token, session.source_url)
+        data = remuxer.segment(name)
+    except Exception as e:
+        logger.error(f"Remux failed for {name}: {str(e)}")
+        return HttpResponse("remux failed", status=500)
+    return HttpResponse(data, content_type="video/mp2t")
 
 
 def get_client_ip(request):
@@ -348,6 +383,7 @@ def getlivestream(request):
             
             stream_data = json.loads(result.stdout.decode('utf-8'))
             rewrite_master_urls(stream_data)
+            vodproxy.normalize_quality(stream_data, resolution)
             logger.info(f"Stream URL: {summarize_stream(stream_data)}")
             return JsonResponse({'stream_data': stream_data})
         
@@ -400,6 +436,11 @@ def getvod(request):
             
             stream_data = json.loads(result.stdout.decode('utf-8'))
             rewrite_master_urls(stream_data)
+            quality = vodproxy.normalize_quality(stream_data, resolution)
+            if quality:
+                vodproxy.prune_sessions()
+                vodproxy.proxy_if_fragmented(
+                    stream_data, quality, settings.DJANGO_BASE_URL)
             logger.info(f"Stream URL: {summarize_stream(stream_data)}")
             return JsonResponse({'stream_data': stream_data})
         
