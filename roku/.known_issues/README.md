@@ -48,6 +48,7 @@ resolves any of them, so a name in a public file is a name anyone can look up
 | [twitch-chat.md](twitch-chat.md) | 2026-10-29 | Chat was empty: five stacked faults. Fixed by moving to plain Twitch IRC — **the backend scope change still has to be deployed**, and the account has to re-log-in afterwards. |
 | [backend-chat-relay.md](backend-chat-relay.md) | 2026-10-29 | Future feature: move the Twitch-side connection to the backend so the Roku only ever needs plain HTTPS |
 | [tls-1.3-on-roku.md](tls-1.3-on-roku.md) | 2026-10-29 | What a hand-rolled TLS 1.3 stack on Roku would require, and why the chat does not need one. |
+| [token-expiry-cache.md](token-expiry-cache.md) | 2026-11-14 | Remembering the token expiry so a browse does not spend two round trips asking Twitch whether the token is still good. Written, shipped and rolled back — the file records what the Global node will and will not do, which is what kept breaking. |
 
 ## Related
 

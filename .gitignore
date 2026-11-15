@@ -36,3 +36,7 @@ backend/static/
 .DS_Store
 *.swp
 *~
+
+# Scratch space for local tooling: log captures, test scripts, throwaway
+# virtualenvs. Nothing in here is part of the project.
+tmp/

@@ -243,6 +243,21 @@ task thread hangs forever.
 Cross-component state is dumped onto `m.global` via `addFields` / `setField`.
 Notable keys:
 
+**A global field has to exist before it is set.** `setField` on a field the
+node does not have **stops the script**. And `m.global` is the **Global
+node**, not an `roSGNode`: it has `hasField`, `addFields`, `getField` and
+`setField`, but **not** `addField` — calling that fails with "Member
+function not found in BrightScript Component or interface" and stops the
+script. `addFields` takes the field's type from the value, so it cannot
+create a field from an `invalid` value either.
+
+The fields below are created by `MainScene.init`, but the tasks that use
+them start before it runs — `HomeScene.init` starts `GetStreams` — so
+anything a task writes has to be created on demand. See
+[`.known_issues/token-expiry-cache.md`](.known_issues/token-expiry-cache.md)
+for the working shape.
+
+
 | Key | Meaning | Set at |
 |---|---|---|
 | `appClientId` | Twitch client id from `/apptoken` | `MainScene.brs:181` |
@@ -391,6 +406,15 @@ conventions](.known_issues/README.md).
   `waitForAppToken()`, which busy-waits on `m.global.appBearerToken`.
   `HomeScene.init` starts `GetStreams` before `MainScene.init` defines it, so
   the first browse request can abort on a type error.
+- **`common/TwitchAuth.brs`** — the "only one refresh at a time" flag is
+  never actually set. `refreshUserToken` writes
+  `m.global.tokenRefreshInProgress`, but the global node does not have that
+  field, so the write is dropped with a warning and two tasks that find the
+  token expired at once can still both refresh it — which spends the refresh
+  token twice. A refresh **rotates** the refresh token, so this matters. The
+  field has to be created before it is written; see
+  [`.known_issues/token-expiry-cache.md`](.known_issues/token-expiry-cache.md)
+  for what the global node will and will not do.
 - **`CustomVideo.brs`** — `VideoBookmarks` is assembled as a hand-built
   string, and the loop that writes it out is preceded by the insert of the
   new entry. Keep the insert before the loop and let the loop be the only
